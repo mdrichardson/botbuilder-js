@@ -7,11 +7,8 @@
  */
 
 import { Storage, StoreItems } from 'botbuilder';
-import { ConnectionPolicy, DocumentClient, RequestOptions, UriFactory } from 'documentdb';
-import * as semaphore from 'semaphore';
+import { ConnectionPolicy, CosmosClient, Database, Container, RequestOptions,CosmosClientOptions, PartitionKind } from '@azure/cosmos';
 import { CosmosDbKeyEscape } from './cosmosDbKeyEscape';
-
-const _semaphore: semaphore.Semaphore = semaphore(1);
 
 // @types/documentdb does not have DocumentBase definition
 const DocumentBase: any = require('documentdb').DocumentBase; // tslint:disable-line no-require-imports no-var-requires
@@ -34,16 +31,29 @@ export interface CosmosDbStorageSettings {
     databaseId: string;
     /**
      * The Collection ID.
+     * Note that @azure/cosmos calls collections "containers".
+     *  "Collection" will still be used for backwards-compatibility where appropriate
      */
-     collectionId: string;
-     /**
-      * (Optional) Cosmos DB RequestOptions that are passed when the database is created.
-      */
-     databaseCreationRequestOptions?: RequestOptions;
-     /**
-      * (Optional) Cosmos DB RequestOptiones that are passed when the document collection is created.
-      */
-     documentCollectionRequestOptions?: RequestOptions;
+    collectionId: string;
+    /**
+     * The Partition Key. If specified, allows you to use CosmosDB partitioning.
+     */
+    partitionKey?: string;
+    /**
+     * The Partition Value. If specified, you can have different bots use different partition values.
+     * partitionValue is still optional if partitionKey is specified; it will have an undefined value, but still work.
+     * Note that @azure/cosmos uses { [partitionKey]: partitionValue } for querySpec and body Objects 
+     *  and uses { partitionKey: partitionValue } for FeedOptions and RequestOptions Objects.
+     */
+    partitionValue?: string;
+    /**
+     * (Optional) Cosmos DB RequestOptions that are passed when the database is created.
+     */
+    databaseCreationRequestOptions?: RequestOptions;
+    /**
+     * (Optional) Cosmos DB RequestOptiones that are passed when the document collection is created.
+     */
+    documentCollectionRequestOptions?: RequestOptions;
 }
 
 /**
@@ -58,11 +68,15 @@ interface DocumentStoreItem {
     /**
      * Represents the original Id/Key
      */
-   realId: string;
+    realId: string;
     /**
      * The item itself + eTag information
      */
-   document: any;
+    document: any;
+    /**
+     * The partitionKey (optional)
+     */
+    paritionKey?: any;
 }
 
 /**
@@ -76,8 +90,9 @@ interface DocumentStoreItem {
 export class CosmosDbStorage implements Storage {
 
     private settings: CosmosDbStorageSettings;
-    private client: DocumentClient;
-    private collectionExists: Promise<string>;
+    private client: CosmosClient;
+    private container: Container;
+    private database: Database;
     private documentCollectionCreationRequestOption: RequestOptions;
     private databaseCreationRequestOption: RequestOptions;
 
@@ -119,15 +134,34 @@ export class CosmosDbStorage implements Storage {
             connectionPolicyConfigurator(policy);
         }
 
-        this.client = new DocumentClient(settings.serviceEndpoint, { masterKey: settings.authKey }, policy);
+        const cosmosClientOptions: CosmosClientOptions = {
+            auth: { masterKey: settings.authKey },
+            endpoint: settings.serviceEndpoint,
+            connectionPolicy: policy,
+        }
+
+        // this.database and this.container get defined after the first run of ensureContainerExists()
+        this.client = new CosmosClient(cosmosClientOptions);
+        this.database = null;
+        this.container = null;
+
         this.databaseCreationRequestOption = settings.databaseCreationRequestOptions;
         this.documentCollectionCreationRequestOption = settings.documentCollectionRequestOptions;
+
+        // Add a "/" to the beginning of partitionKey, if necessary
+        if (this.settings.partitionKey) {
+            this.settings.partitionKey = this.settings.partitionKey.charAt(0) !== '/' ? '/' + this.settings.partitionKey : this.settings.partitionKey;
+        }
+        // If the partitionKey is the same as a key in the DocumentItem, it will cause an overwrite
+        if (['/id', '/realId', '/document'].indexOf(this.settings.partitionKey) !== -1) {
+            throw new Error('partitionKey cannot be set to "id", "realId", or "document"');
+        }
     }
 
-    public read(keys: string[]): Promise<StoreItems> {
+    public async read (keys: string[]): Promise<StoreItems> {
         if (!keys || keys.length === 0) {
             // No keys passed in, no result to return.
-            return Promise.resolve({});
+            return {};
         }
 
         const parameterSequence: string = Array.from(Array(keys.length).keys())
@@ -136,9 +170,11 @@ export class CosmosDbStorage implements Storage {
         const parameterValues: {
             name: string;
             value: string;
+            partitionKey?: string;
         }[] = keys.map((key: string, ix: number) => ({
             name: `@id${ix}`,
-            value: CosmosDbKeyEscape.escapeKey(key)
+            value: CosmosDbKeyEscape.escapeKey(key),
+            [this.settings.partitionKey.substr(1)]: this.settings.partitionValue || '',
         }));
 
         const querySpec: {
@@ -146,50 +182,45 @@ export class CosmosDbStorage implements Storage {
             parameters: {
                 name: string;
                 value: string;
+                partitionKey?: string;
             }[];
         } = {
             query: `SELECT c.id, c.realId, c.document, c._etag FROM c WHERE c.id in (${parameterSequence})`,
             parameters: parameterValues
         };
 
-        return this.ensureCollectionExists().then((collectionLink: string) => {
-            return new Promise<StoreItems>((resolve: any, reject: any): void => {
-                const storeItems: StoreItems = {};
-                const query: any = this.client.queryDocuments(collectionLink, querySpec);
-                const getNext: any = (q: any): any => {
-                    q.nextItem((err: any, resource: any): any => {
-                        if (err) {
-                            return reject(err);
-                        }
-
-                        if (resource === undefined) {
-                            // completed
-                            return resolve(storeItems);
-                        }
-
-                        // push item
-                        storeItems[resource.realId] = resource.document;
-                        storeItems[resource.realId].eTag = resource._etag;
-
-                        // visit the remaining results recursively
-                        getNext(q);
-                    });
-                };
-
-                // invoke the function
-                getNext(query);
-            });
-        });
+        await this.ensureContainerExists();
+        
+        return await (async (): Promise<StoreItems> => {
+            const storeItems: StoreItems = {};
+            try {
+                const reqOptions = { partitionKey: this.settings.partitionValue };
+                const query = await this.container.items
+                                        .query(querySpec, reqOptions)
+                                        .toArray();
+                // Push documents to storeItems
+                query.result.map(resource => {
+                    storeItems[resource.realId] = resource.document;
+                    storeItems[resource.realId].eTag = resource._etag;
+                });
+                return storeItems;
+                
+            } catch (err) {
+                throw new Error(`Error reading from container: ${err}`);
+            }
+        })();
     }
 
-    public write(changes: StoreItems): Promise<void> {
+    public async write(changes: StoreItems): Promise<void> {
         if (!changes || Object.keys(changes).length === 0) {
-            return Promise.resolve();
+            return;
         }
-
-        return this.ensureCollectionExists().then(() => {
-            return Promise.all(Object.keys(changes).map((k: string) => {
-                const changesCopy:  any = {...changes[k]};
+        
+        await this.ensureContainerExists();
+        
+        return await (async (): Promise<void> => {
+            Object.keys(changes).map(async (k: string) => {
+                const changesCopy: any = {...changes[k]};
 
                 // Remove etag from JSON object that was copied from IStoreItem.
                 // The ETag information is updated as an _etag attribute in the document metadata.
@@ -197,137 +228,107 @@ export class CosmosDbStorage implements Storage {
                 const documentChange: DocumentStoreItem = {
                     id: CosmosDbKeyEscape.escapeKey(k),
                     realId: k,
-                    document: changesCopy
+                    document: changesCopy,
+                    [this.settings.partitionKey.substr(1)]: this.settings.partitionValue || '',
                 };
 
-                return new Promise((resolve: any, reject: any): void => {
-                    const handleCallback: (err: any, data: any) => void = (err: any, data: any): void => err ? reject(err) : resolve();
-
+                return await (async () => {
                     const eTag: string = changes[k].eTag;
                     if (!eTag || eTag === '*') {
-                        // if new item or * then insert or replace unconditionaly
-                        const uri: any = UriFactory.createDocumentCollectionUri(this.settings.databaseId, this.settings.collectionId);
-                        this.client.upsertDocument(uri, documentChange, { disableAutomaticIdGeneration: true }, handleCallback);
+                        // If new item or *, then insert or replace unconditionally
+                        try {
+                            await this.container.items
+                                    .upsert(documentChange, { disableAutomaticIdGeneration: true });
+                        } catch (err) {
+                            throw new Error(`Error upserting document: ${JSON.stringify(err)}`);
+                        }
                     } else if (eTag.length > 0) {
-                        // if we have an etag, do opt. concurrency replace
-                        const uri: any = UriFactory.createDocumentUri(
-                            this.settings.databaseId,
-                            this.settings.collectionId,
-                            documentChange.id
-                        );
-                        const ac: any = { type: 'IfMatch', condition: eTag };
-                        this.client.replaceDocument(uri, documentChange, { accessCondition: ac }, handleCallback);
+                        // If we have an etag, do opt. concurrency replace
+                        try {
+                            const reqOptions = {
+                                accessCondition: { type: 'IfMatch', condition: eTag },
+                                partitionKey: this.settings.partitionValue,
+                            };
+                            await this.container
+                                    .item(CosmosDbKeyEscape.escapeKey(k), this.settings.partitionKey)
+                                    .replace(documentChange, reqOptions);
+                        } catch (err) {
+                            throw new Error(`Error replacing document: ${err.toString()}`)
+                        }
                     } else {
-                        reject(new Error('etag empty'));
+                        throw new Error(`etag empty`);
                     }
-                });
-            })).then(() => {
-                return;
-            }); // void
-        });
+                })();
+            });
+        })();
     }
 
-    public delete(keys: string[]): Promise<void> {
+    public async delete(keys: string[]): Promise<void> {
         if (!keys || keys.length === 0) {
             return Promise.resolve();
         }
 
-        return this.ensureCollectionExists().then(() =>
-            Promise.all(keys.map((k: string) =>
-                new Promise((resolve: any, reject: any): void =>
-                    this.client.deleteDocument(
-                        UriFactory.createDocumentUri(this.settings.databaseId, this.settings.collectionId, CosmosDbKeyEscape.escapeKey(k)),
-                        (err: any, data: any): void =>
-                            err && err.code !== 404 ? reject(err) : resolve()
-                        )
-                    )
-            ))
-        ) // handle notfound as Ok
-        .then(() => {
-            return;
-         }); // void
+        await this.ensureContainerExists();
+
+        await keys.map(async (k: string) => {
+            try {
+                const reqOptions = { partitionKey: this.settings.partitionValue };
+                await this.container
+                    .item(CosmosDbKeyEscape.escapeKey(k), this.settings.partitionKey)
+                    .delete(reqOptions);
+            } catch (err) {
+                // Don't thow an error if trying to delete something that doesn't exist
+                if (err.code !== 404) {
+                    throw new Error(`Unable to delete document: ${JSON.stringify(err)}`);
+                }
+            }
+        });
     }
 
     /**
-     * Delayed Database and Collection creation if they do not exist.
+     * Ensures that database and container have been initialized. Create them if they haven't
      */
-    private ensureCollectionExists(): Promise<string> {
-        if (!this.collectionExists) {
-            this.collectionExists = new Promise((resolve : Function, reject : Function) : void => {
-                _semaphore.take(() => {
-                    const result : Promise<string> = this.collectionExists ? this.collectionExists :
-                        getOrCreateDatabase(this.client, this.settings.databaseId, this.databaseCreationRequestOption)
-                        .then((databaseLink: string) => getOrCreateCollection(
-                            this.client, databaseLink, this.settings.collectionId, this.documentCollectionCreationRequestOption));
-                    _semaphore.leave();
-                    resolve(result);
-                });
-            });
+    private async ensureContainerExists(): Promise<void> {
+        if (!this.database) {
+            await this.getOrCreateDatabase();
         }
-
-        return this.collectionExists;
+        if (!this.container) {
+            await this.getOrCreateContainer();
+        }
     }
-}
 
-/**
- * @private
- */
-function getOrCreateDatabase(client: DocumentClient, databaseId: string, databaseCreationRequestOption: RequestOptions): Promise<string> {
-    const querySpec: {
-        query: string;
-        parameters: {
-            name: string;
-            value: string;
-        }[];
-    } = {
-        query: 'SELECT r._self FROM root r WHERE r.id = @id',
-        parameters: [{ name: '@id', value: databaseId }]
-    };
+    private async getOrCreateDatabase() {
+        try {
+            const dbResponse = await this.client.databases
+                                        .createIfNotExists({ id: this.settings.databaseId }, this.databaseCreationRequestOption);
+            this.database = dbResponse.database;
+            return this.database;
+        } catch (err) {
+            // Don't throw an error if the database already exists
+            if (err.code !== 409) {
+                throw new Error(`Error initilizing database: ${err.toString()}`);
+            }
+        }
+    }
 
-    return new Promise((resolve: any, reject: any): void => {
-        client.queryDatabases(querySpec).toArray((err: any, results: any): void => {
-            if (err) { return reject(err); }
-            if (results.length === 1) { return resolve(results[0]._self); }
-
-            // create db
-            client.createDatabase({ id: databaseId }, databaseCreationRequestOption, (db_create_err: any, databaseLink: any) => {
-                if (db_create_err) { return reject(db_create_err); }
-                resolve(databaseLink._self);
-            });
-        });
-    });
-}
-
-/**
- * @private
- */
-function getOrCreateCollection(client: DocumentClient,
-                               databaseLink: string,
-                               collectionId: string,
-                               documentCollectionCreationRequestOption: RequestOptions): Promise<string> {
-    const querySpec: {
-        query: string;
-        parameters: {
-            name: string;
-            value: string;
-        }[];
-    } = {
-        query: 'SELECT r._self FROM root r WHERE r.id=@id',
-        parameters: [{ name: '@id', value: collectionId }]
-    };
-
-    return new Promise((resolve: any, reject: any): void => {
-        client.queryCollections(databaseLink, querySpec).toArray((err: any, results: any): void => {
-            if (err) { return reject(err); }
-            if (results.length === 1) { return resolve(results[0]._self); }
-
-            client.createCollection(databaseLink,
-                                    { id: collectionId },
-                                    documentCollectionCreationRequestOption,
-                                    (err2: any, collectionLink: any) => {
-                                        if (err2) { return reject(err2); }
-                                        resolve(collectionLink._self);
-            });
-        });
-    });
+    private async getOrCreateContainer() {
+        try {
+            const reqOptions = {
+                id: this.settings.collectionId,
+                partitionKey: {
+                    paths: [this.settings.partitionKey],
+                    kind: PartitionKind.Hash,
+                }
+            }
+            const coResponse = await this.database.containers
+                                        .createIfNotExists(reqOptions, this.documentCollectionCreationRequestOption);
+            this.container = coResponse.container;
+            return this.container;
+        } catch (err) {
+            // Don't throw an error if the container already exists
+            if (err.code !== 409) {
+                throw new Error(`Error initilizing container: ${err.toString()}`);
+            }
+        }
+    }
 }

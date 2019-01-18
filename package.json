@@ -13,6 +13,8 @@
         "update-versions": "lerna run set-version && npm run set-dependency-versions"
     },
     "dependencies": {
+        "@azure/cosmos": "^2.1.1",
+        "botbuilder": "^4.2.0",
         "ms-rest-azure": "^2.5.9",
         "ms-rest-js": "^1.0.1",
         "read-text-file": "^1.1.0",
