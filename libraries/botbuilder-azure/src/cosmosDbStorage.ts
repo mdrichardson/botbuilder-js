@@ -174,7 +174,7 @@ export class CosmosDbStorage implements Storage {
         }[] = keys.map((key: string, ix: number) => ({
             name: `@id${ix}`,
             value: CosmosDbKeyEscape.escapeKey(key),
-            [this.settings.partitionKey.substr(1)]: this.settings.partitionValue || '',
+            ...this.formatPartitionKeyValue(),
         }));
 
         const querySpec: {
@@ -206,7 +206,7 @@ export class CosmosDbStorage implements Storage {
                 return storeItems;
                 
             } catch (err) {
-                throw new Error(`Error reading from container: ${err}`);
+                throw new Error(`Error reading from container: ${JSON.stringify(err)}`);
             }
         })();
     }
@@ -229,7 +229,7 @@ export class CosmosDbStorage implements Storage {
                     id: CosmosDbKeyEscape.escapeKey(k),
                     realId: k,
                     document: changesCopy,
-                    [this.settings.partitionKey.substr(1)]: this.settings.partitionValue || '',
+                    ...this.formatPartitionKeyValue(),
                 };
 
                 return await (async () => {
@@ -253,7 +253,7 @@ export class CosmosDbStorage implements Storage {
                                     .item(CosmosDbKeyEscape.escapeKey(k), this.settings.partitionKey)
                                     .replace(documentChange, reqOptions);
                         } catch (err) {
-                            throw new Error(`Error replacing document: ${err.toString()}`)
+                            throw new Error(`Error replacing document: ${JSON.stringify(err)}`)
                         }
                     } else {
                         throw new Error(`etag empty`);
@@ -306,19 +306,20 @@ export class CosmosDbStorage implements Storage {
         } catch (err) {
             // Don't throw an error if the database already exists
             if (err.code !== 409) {
-                throw new Error(`Error initilizing database: ${err.toString()}`);
+                throw new Error(`Error initializing database: ${JSON.stringify(err)}`);
             }
         }
     }
 
     private async getOrCreateContainer() {
         try {
+            const partitionKeyOption = {
+                paths: [this.settings.partitionKey],
+                kind: PartitionKind.Hash,
+            } 
             const reqOptions = {
                 id: this.settings.collectionId,
-                partitionKey: {
-                    paths: [this.settings.partitionKey],
-                    kind: PartitionKind.Hash,
-                }
+                partitionKey: this.settings.partitionKey ? partitionKeyOption : undefined,
             }
             const coResponse = await this.database.containers
                                         .createIfNotExists(reqOptions, this.documentCollectionCreationRequestOption);
@@ -327,8 +328,14 @@ export class CosmosDbStorage implements Storage {
         } catch (err) {
             // Don't throw an error if the container already exists
             if (err.code !== 409) {
-                throw new Error(`Error initilizing container: ${err.toString()}`);
+                throw new Error(`Error initializing container: ${JSON.stringify(err)}`);
             }
         }
+    }
+
+    private formatPartitionKeyValue(): Object {
+        return this.settings.partitionKey ?
+                    {[this.settings.partitionKey.substr(1)]: this.settings.partitionValue || ''} :
+                    {}
     }
 }
