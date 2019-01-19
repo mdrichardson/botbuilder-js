@@ -206,7 +206,14 @@ export class CosmosDbStorage implements Storage {
                 return storeItems;
                 
             } catch (err) {
-                throw new Error(`Error reading from container: ${JSON.stringify(err)}`);
+                // Throw unique error for 400s
+                if (err.code === 400) {
+                    throw new Error(
+                        `Error initializing container. You might be using partitions in a non-partitioned DB or
+                        are not using partitions in a partitioned db that already contains partitioned data: ${this.returnReadableError(err)};
+                    `)
+                }
+                throw new Error(`Error reading from container: ${this.returnReadableError(err)}`);
             }
         })();
     }
@@ -240,7 +247,7 @@ export class CosmosDbStorage implements Storage {
                             await this.container.items
                                     .upsert(documentChange, { disableAutomaticIdGeneration: true });
                         } catch (err) {
-                            throw new Error(`Error upserting document: ${JSON.stringify(err)}`);
+                            throw new Error(`Error upserting document: ${this.returnReadableError(err)}`);
                         }
                     } else if (eTag.length > 0) {
                         // If we have an etag, do opt. concurrency replace
@@ -253,7 +260,7 @@ export class CosmosDbStorage implements Storage {
                                     .item(CosmosDbKeyEscape.escapeKey(k), this.settings.partitionKey)
                                     .replace(documentChange, reqOptions);
                         } catch (err) {
-                            throw new Error(`Error replacing document: ${JSON.stringify(err)}`)
+                            throw new Error(`Error replacing document: ${this.returnReadableError(err)}`)
                         }
                     } else {
                         throw new Error(`etag empty`);
@@ -279,7 +286,7 @@ export class CosmosDbStorage implements Storage {
             } catch (err) {
                 // Don't thow an error if trying to delete something that doesn't exist
                 if (err.code !== 404) {
-                    throw new Error(`Unable to delete document: ${JSON.stringify(err)}`);
+                    throw new Error(`Unable to delete document: ${this.returnReadableError(err)}`);
                 }
             }
         });
@@ -306,7 +313,7 @@ export class CosmosDbStorage implements Storage {
         } catch (err) {
             // Don't throw an error if the database already exists
             if (err.code !== 409) {
-                throw new Error(`Error initializing database: ${JSON.stringify(err)}`);
+                throw new Error(`Error initializing database: ${this.returnReadableError(err)}`);
             }
         }
     }
@@ -326,9 +333,16 @@ export class CosmosDbStorage implements Storage {
             this.container = coResponse.container;
             return this.container;
         } catch (err) {
+            // Throw unique error for 400s
+            if (err.code === 400) {
+                throw new Error(
+                    `Error initializing container. You might be using partitions in a non-partitioned DB or
+                    are not using partitions in a partitioned db that already contains partitioned data: ${this.returnReadableError(err)};
+                `)
+            }
             // Don't throw an error if the container already exists
             if (err.code !== 409) {
-                throw new Error(`Error initializing container: ${JSON.stringify(err)}`);
+                throw new Error(`Error initializing container: ${this.returnReadableError(err)}`);
             }
         }
     }
@@ -337,5 +351,12 @@ export class CosmosDbStorage implements Storage {
         return this.settings.partitionKey ?
                     {[this.settings.partitionKey.substr(1)]: this.settings.partitionValue || ''} :
                     {}
+    }
+
+    private returnReadableError(err): string {
+        if (err instanceof Error) {
+            return JSON.stringify(err);
+        }
+        return err.toString();
     }
 }
