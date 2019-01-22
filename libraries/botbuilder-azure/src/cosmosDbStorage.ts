@@ -355,6 +355,9 @@ export class CosmosDbStorage implements Storage {
 
     private returnReadableError(err): string {
         if (err instanceof Error) {
+            console.log('instance')
+            return JSON.stringify(err.stack);
+        } else if (typeof err === 'object') {
             return JSON.stringify(err);
         }
         return err.toString();
