@@ -6,8 +6,8 @@
  * Licensed under the MIT License.
  */
 
+import { ConnectionPolicy, Container, CosmosClient, CosmosClientOptions, Database, PartitionKind, RequestOptions } from '@azure/cosmos';
 import { Storage, StoreItems } from 'botbuilder';
-import { ConnectionPolicy, CosmosClient, Database, Container, RequestOptions,CosmosClientOptions, PartitionKind } from '@azure/cosmos';
 import { CosmosDbKeyEscape } from './cosmosDbKeyEscape';
 
 // @types/documentdb does not have DocumentBase definition
@@ -42,7 +42,7 @@ export interface CosmosDbStorageSettings {
     /**
      * The Partition Value. If specified, you can have different bots use different partition values.
      * partitionValue is still optional if partitionKey is specified; it will have an undefined value, but still work.
-     * Note that @azure/cosmos uses { [partitionKey]: partitionValue } for querySpec and body Objects 
+     * Note that @azure/cosmos uses { [partitionKey]: partitionValue } for querySpec and body Objects
      *  and uses { partitionKey: partitionValue } for FeedOptions and RequestOptions Objects.
      */
     partitionValue?: string;
@@ -79,6 +79,17 @@ interface DocumentStoreItem {
     paritionKey?: any;
 }
 
+interface QuerySpecParameters {
+    name: string;
+    value: string;
+    partitionKey?: string;
+}
+
+interface QuerySpec {
+    query: string;
+    parameters: QuerySpecParameters[];
+}
+
 /**
  * Middleware that implements a CosmosDB based storage provider for a bot.
  *
@@ -104,7 +115,7 @@ export class CosmosDbStorage implements Storage {
      */
     public constructor(
         settings: CosmosDbStorageSettings,
-        connectionPolicyConfigurator: (policy: ConnectionPolicy) => void = null
+        connectionPolicyConfigurator: (policy: ConnectionPolicy) => void = null,
     ) {
         if (!settings) {
             throw new Error('The settings parameter is required.');
@@ -138,7 +149,7 @@ export class CosmosDbStorage implements Storage {
             auth: { masterKey: settings.authKey },
             endpoint: settings.serviceEndpoint,
             connectionPolicy: policy,
-        }
+        };
 
         // this.database and this.container get defined after the first run of ensureContainerExists()
         this.client = new CosmosClient(cosmosClientOptions);
@@ -162,7 +173,7 @@ export class CosmosDbStorage implements Storage {
         }
     }
 
-    public async read (keys: string[]): Promise<StoreItems> {
+    public async read(keys: string[]): Promise<StoreItems> {
         if (!keys || keys.length === 0) {
             // No keys passed in, no result to return.
             return {};
@@ -171,30 +182,19 @@ export class CosmosDbStorage implements Storage {
         const parameterSequence: string = Array.from(Array(keys.length).keys())
             .map((ix: number) => `@id${ix}`)
             .join(',');
-        const parameterValues: {
-            name: string;
-            value: string;
-            partitionKey?: string;
-        }[] = keys.map((key: string, ix: number) => ({
+        const parameterValues: QuerySpecParameters[] = keys.map((key: string, ix: number) => ({
             name: `@id${ix}`,
             value: CosmosDbKeyEscape.escapeKey(key),
             ...this.formatPartitionKeyValue(),
         }));
 
-        const querySpec: {
-            query: string;
-            parameters: {
-                name: string;
-                value: string;
-                partitionKey?: string;
-            }[];
-        } = {
+        const querySpec: QuerySpec = {
             query: `SELECT c.id, c.realId, c.document, c._etag FROM c WHERE c.id in (${parameterSequence})`,
-            parameters: parameterValues
+            parameters: parameterValues,
         };
 
         await this.ensureContainerExists();
-        
+
         return await (async (): Promise<StoreItems> => {
             const storeItems: StoreItems = {};
             try {
@@ -203,12 +203,12 @@ export class CosmosDbStorage implements Storage {
                                         .query(querySpec, reqOptions)
                                         .toArray();
                 // Push documents to storeItems
-                query.result.map(resource => {
+                query.result.map((resource) => {
                     storeItems[resource.realId] = resource.document;
                     storeItems[resource.realId].eTag = resource._etag;
                 });
                 return storeItems;
-                
+
             } catch (err) {
                 // Throw unique error for 400s
                 if (err.code === 400) {
@@ -224,9 +224,9 @@ export class CosmosDbStorage implements Storage {
         if (!changes || Object.keys(changes).length === 0) {
             return;
         }
-        
+
         await this.ensureContainerExists();
-        
+
         return await (async (): Promise<void> => {
             Object.keys(changes).map(async (k: string) => {
                 const changesCopy: any = {...changes[k]};
@@ -325,11 +325,11 @@ export class CosmosDbStorage implements Storage {
             const partitionKeyOption = {
                 paths: [this.settings.partitionKey],
                 kind: PartitionKind.Hash,
-            } 
+            };
             const reqOptions = {
                 id: this.settings.collectionId,
                 partitionKey: this.settings.partitionKey ? partitionKeyOption : undefined,
-            }
+            };
             const coResponse = await this.database.containers
                                         .createIfNotExists(reqOptions, this.documentCollectionCreationRequestOption);
             this.container = coResponse.container;
@@ -347,10 +347,10 @@ export class CosmosDbStorage implements Storage {
         }
     }
 
-    private formatPartitionKeyValue(): Object {
+    private formatPartitionKeyValue(): object {
         return this.settings.partitionKey ?
                     {[this.settings.partitionKey.substr(1)]: this.settings.partitionValue || ''} :
-                    {}
+                    {};
     }
 
     private errWithNewMessage(err: any, message: string): Error {
