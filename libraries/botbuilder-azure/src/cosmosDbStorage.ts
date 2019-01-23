@@ -152,6 +152,10 @@ export class CosmosDbStorage implements Storage {
         if (this.settings.partitionKey) {
             this.settings.partitionKey = this.settings.partitionKey.charAt(0) !== '/' ? '/' + this.settings.partitionKey : this.settings.partitionKey;
         }
+
+        // Make partitionValue truly optional. If partitionValue is left `undefined`, storage won't work in previously-partitioned databases
+        this.settings.partitionValue = this.settings.partitionValue || '';
+
         // If the partitionKey is the same as a key in the DocumentItem, it will cause an overwrite
         if (['/id', '/realId', '/document'].indexOf(this.settings.partitionKey) !== -1) {
             throw new Error('partitionKey cannot be set to "id", "realId", or "document"');
@@ -359,7 +363,6 @@ export class CosmosDbStorage implements Storage {
         } else {
             err = new Error(JSON.stringify(err));
         }
-        err.name = message;
         err.message = `${message}: ${err.message}`;
         return err;
     }
