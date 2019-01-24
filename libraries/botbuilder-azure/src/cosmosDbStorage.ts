@@ -76,12 +76,18 @@ interface DocumentStoreItem {
     paritionKey?: any;
 }
 
+/**
+ * Internal data structure for specifying query parameters
+ */
 interface QuerySpecParameters {
     name: string;
     value: string;
     partitionKey?: string;
 }
 
+/**
+ * Internal data structure for specifying queries
+ */
 interface QuerySpec {
     query: string;
     parameters: QuerySpecParameters[];
@@ -93,7 +99,7 @@ interface QuerySpec {
  * @remarks
  * The `connectionPolicyConfigurator` handler can be used to further customize the connection to
  * CosmosDB (Connection mode, retry options, timeouts). More information at
- * http://azure.github.io/azure-documentdb-node/global.html#ConnectionPolicy
+ * https://docs.microsoft.com/en-us/javascript/api/%40azure/cosmos/connectionpolicy?view=azure-node-latest
  */
 export class CosmosDbStorage implements Storage {
 
@@ -108,7 +114,7 @@ export class CosmosDbStorage implements Storage {
      * Creates a new ConsmosDbStorage instance.
      *
      * @param settings Setting to configure the provider.
-     * @param connectionPolicyConfigurator (Optional) An optional delegate that accepts a ConnectionPolicy for customizing policies. More information at http://azure.github.io/azure-documentdb-node/global.html#ConnectionPolicy
+     * @param connectionPolicyConfigurator (Optional) An optional delegate that accepts a ConnectionPolicy for customizing policies. More information at https://docs.microsoft.com/en-us/javascript/api/%40azure/cosmos/connectionpolicy?view=azure-node-latest
      */
     public constructor(
         settings: CosmosDbStorageSettings,
@@ -156,7 +162,7 @@ export class CosmosDbStorage implements Storage {
         this.databaseCreationRequestOption = settings.databaseCreationRequestOptions;
         this.documentCollectionCreationRequestOption = settings.documentCollectionRequestOptions;
 
-        // Add a "/" to the beginning of partitionKey, if necessary
+        // Add a "/" to the beginning of partitionKey, if user didn't specify one
         if (this.settings.partitionKey) {
             this.settings.partitionKey = this.settings.partitionKey.charAt(0) !== '/' ? '/' + this.settings.partitionKey : this.settings.partitionKey;
         }
@@ -290,7 +296,7 @@ export class CosmosDbStorage implements Storage {
                     .item(CosmosDbKeyEscape.escapeKey(k), this.settings.partitionKey)
                     .delete(reqOptions);
             } catch (err) {
-                // Don't thow an error if trying to delete something that doesn't exist
+                // Throw errors for everything except trying to delete a document that doesn't exist
                 if (err.code !== 404) {
                     throw this.errWithNewMessage(err, 'Unable to delete document');
                 }
@@ -317,7 +323,7 @@ export class CosmosDbStorage implements Storage {
             this.database = dbResponse.database;
             return this.database;
         } catch (err) {
-            // Don't throw an error if the database already exists
+            // Throw errors for everything except if the database already exists
             if (err.code !== 409) {
                 throw this.errWithNewMessage(err, 'Error initializing database');
             }
@@ -344,7 +350,7 @@ export class CosmosDbStorage implements Storage {
                 throw this.errWithNewMessage(err, `Error initializing container. You might be using partitions in a non-partitioned DB or
                 are not using partitions in a partitioned db that already contains partitioned data`);
             }
-            // Don't throw an error if the container already exists
+            // Throw errors for everything except if the container already exists
             if (err.code !== 409) {
                 throw this.errWithNewMessage(err, 'Error initializing container');
             }
