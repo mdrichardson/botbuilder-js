@@ -167,9 +167,16 @@ export class CosmosDbStorage implements Storage {
         // Make partitionValue truly optional. If partitionValue is left `undefined`, storage won't work in previously-partitioned databases
         this.settings.partitionValue = this.settings.partitionValue || '';
 
-        // If the partitionKey is the same as a key in the DocumentItem, it will cause an overwrite
-        if (['/id', '/realId', '/document'].indexOf(this.settings.partitionKey) !== -1) {
-            throw new Error('partitionKey cannot be set to "id", "realId", or "document"');
+        // If the partitionKey is the same as a key in the DocumentStoreItem, it will cause an overwrite
+        //    Creating a typed blankDocumentStoreItem will help keep this working if DocumentStoreItem changes
+        //    and as of this writing, TypeScript doesn't natively allow getting keys of an interface.
+        const blankDocumentStoreItem: DocumentStoreItem = {
+            id: 'true',
+            realId: 'true',
+            document: 'true',
+        };
+        if (blankDocumentStoreItem[this.settings.partitionKey] === 'true') {
+            throw new Error(`partitionKey cannot be set to any: ${Object.keys(blankDocumentStoreItem)}`);
         }
     }
 
@@ -295,7 +302,7 @@ export class CosmosDbStorage implements Storage {
     }
 
     /**
-     * Ensures that database and container have been initialized. Create them if they haven't
+     * Ensures that database and container have been initialized. Creates them if they haven't
      */
     private async ensureContainerExists(): Promise<void> {
         if (!this.database) {
@@ -347,23 +354,39 @@ export class CosmosDbStorage implements Storage {
         }
     }
 
+    /**
+     * Removes '/' from partitionKey when necessary
+     */
     private formatPartitionKeyValue(): object {
         return this.settings.partitionKey ?
                     {[this.settings.partitionKey.substr(1)]: this.settings.partitionValue || ''} :
                     {};
     }
+    /**
+     * @azure/cosmos sometimes returns errors of the Error type and sometimes a JSON object that resembles HTTP errors.
+     * This function makes it so that regardless of error type returned, users can console.log() the expected JavaScript
+     * Error Type and can get err.message and more importantly, err.stack.
+     * err.original will contain the full, original error from @azure/cosmos.
+     * @param err An error of any type. Typically Error or string
+     * @param message A string to be used as part of Error.message
+     */
 
     private errWithNewMessage(err: any, message: string): Error {
+        let original;
         if (err instanceof Error) {
+            original = err;
             err.message = JSON.stringify(err.message);
         } else if (err.body) {
             const parsedError = JSON.parse(err.body);
+            original = err;
             err = new Error(JSON.stringify(parsedError.message));
             err.code = parsedError.message;
         } else {
+            original = err;
             err = new Error(JSON.stringify(err));
         }
         err.message = `${message}: ${err.message}`;
+        err.original = original || err;
         return err;
     }
 }
