@@ -17,7 +17,7 @@ export interface CosmosDbStorageSettings {
     /**
      * The endpoint Uri for the service endpoint from the Azure Cosmos DB service.
      */
-     serviceEndpoint: string;
+    serviceEndpoint: string;
     /**
      * The AuthKey used by the client from the Azure Cosmos DB service.
      */
@@ -178,7 +178,7 @@ export class CosmosDbStorage implements Storage {
             realId: 'true',
             document: 'true',
         };
-        if (blankDocumentStoreItem[this.settings.partitionKey] === 'true') {
+        if (blankDocumentStoreItem[this.settings.partitionKey.substr(1)] === 'true') {
             throw new Error(`partitionKey cannot be set to any: ${Object.keys(blankDocumentStoreItem)}`);
         }
     }
@@ -358,7 +358,7 @@ export class CosmosDbStorage implements Storage {
     }
 
     /**
-     * Removes '/' from partitionKey when necessary
+     * Creates partition key object approrpiate for usage
      */
     private formatPartitionKeyValue(): object {
         return this.settings.partitionKey ?
