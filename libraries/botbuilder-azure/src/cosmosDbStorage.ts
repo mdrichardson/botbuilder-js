@@ -199,7 +199,7 @@ export class CosmosDbStorage implements Storage {
         const parameterValues: QuerySpecParameters[] = keys.map((key: string, ix: number) => ({
             name: `@id${ix}`,
             value: CosmosDbKeyEscape.escapeKey(key),
-            ...this.formatPartitionKeyValue(),
+            ...this.getFormattedPartitionObject(),
         }));
 
         const querySpec: QuerySpec = {
@@ -239,7 +239,7 @@ export class CosmosDbStorage implements Storage {
 
         await this.ensureContainerExists();
 
-        Object.keys(changes).map(async (k: string) => {
+        await Promise.all(Object.keys(changes).map(async (k: string) => {
             const changesCopy: any = {...changes[k]};
 
             // Remove etag from JSON object that was copied from IStoreItem.
@@ -249,7 +249,7 @@ export class CosmosDbStorage implements Storage {
                 id: CosmosDbKeyEscape.escapeKey(k),
                 realId: k,
                 document: changesCopy,
-                ...this.formatPartitionKeyValue(),
+                ...this.getFormattedPartitionObject(),
             };
 
             const eTag: string = changes[k].eTag;
@@ -277,7 +277,7 @@ export class CosmosDbStorage implements Storage {
             } else {
                 throw new Error(`etag empty`);
             }
-        });
+        }));
     }
 
     public async delete(keys: string[]): Promise<void> {
@@ -287,7 +287,7 @@ export class CosmosDbStorage implements Storage {
 
         await this.ensureContainerExists();
 
-        await keys.map(async (k: string) => {
+        await Promise.all(keys.map(async (k: string) => {
             try {
                 const reqOptions = { partitionKey: this.settings.partitionValue };
                 await this.container
@@ -299,7 +299,7 @@ export class CosmosDbStorage implements Storage {
                     throw this.errWithNewMessage(err, 'Unable to delete document');
                 }
             }
-        });
+        }));
     }
 
     /**
@@ -356,9 +356,9 @@ export class CosmosDbStorage implements Storage {
     }
 
     /**
-     * Creates partition key object approrpiate for usage
+     * Returns partition key object approrpiate for usage
      */
-    private formatPartitionKeyValue(): object {
+    private getFormattedPartitionObject(): object {
         return this.settings.partitionKey ?
                     {[this.settings.partitionKey.substr(1)]: this.settings.partitionValue || ''} :
                     {};
