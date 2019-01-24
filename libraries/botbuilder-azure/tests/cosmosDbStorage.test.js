@@ -1,6 +1,6 @@
 const assert = require('assert');
 const { CosmosDbStorage } = require('../');
-const { DocumentClient, UriFactory } = require('documentdb');
+const { Container, CosmosClient, Database } = require('@azure/cosmos');
 const { MockMode, usingNock } = require('./mockHelper');
 const nock = require('nock');
 
@@ -20,7 +20,11 @@ const reset = (done) => {
     nock.enableNetConnect();
     if (mode !== MockMode.lockdown) {
         let settings = getSettings();
-        let client = new DocumentClient(settings.serviceEndpoint, { masterKey: settings.authKey });
+        const cosmosClientOptions = {
+            auth: { masterKey: settings.authKey },
+            endpoint: settings.serviceEndpoint,
+        };
+        this.client = new CosmosClient(cosmosClientOptions);
         client.deleteDatabase(UriFactory.createDatabaseUri(settings.databaseId), (err, response) => done());
     } else {
         done();
@@ -120,7 +124,7 @@ testStorage = function () {
                     return storage.write(result).then(() => {
                         result.keyUpdate2.count = 3;
                         return storage.write(result)
-                            .then(() => assert(false, `should throw an exception on second write with same etag: ${print(reason)}`))
+                            .then(() => {assert(false, `should throw an exception on second write with same etag: ${print(reason)}`)})
                             .catch((reason) => { });
                     });
                 })
@@ -411,6 +415,130 @@ describe('CosmosDbStorage Constructor', function() {
 
         assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing collection ID.')
     });
+
+    it('partitionValue provided but not partitionKey - null value', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: null,
+            partitionValue: 'testPartitionValue',
+        };
+
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing partitionKey.')
+    });
+
+    it('partitionValue provided but not partitionKey should be thrown - empty value', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: '',
+            partitionValue: 'testPartitionValue',
+        };
+
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing partitionKey.')
+    });
+
+    it('partitionValue provided but not partitionKey should be thrown - white spaces', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: '               ',
+            partitionValue: 'testPartitionValue',
+        };
+
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing partitionKey.')
+    });
+
+    it('partitionValue provided but not partitionKey should be thrown - white spaces', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: '               ',
+            partitionValue: 'testPartitionValue',
+        };
+
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing partitionKey.')
+    });
+
+    it('partitionKey provided is same as DocumentStoreItem should be thrown - id WITH slash', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: '/id',
+        };
+
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
+    });
+
+    it('partitionKey provided is same as DocumentStoreItem should be thrown - id WITHOUT slash', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: 'id',
+        };
+
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
+    });
+
+    it('partitionKey provided is same as DocumentStoreItem should be thrown - realId WITH slash', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: '/realId',
+        };
+
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
+    });
+
+    it('partitionKey provided is same as DocumentStoreItem should be thrown - realId WITHOUT slash', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: 'realId',
+        };
+
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
+    });
+
+    it('partitionKey provided is same as DocumentStoreItem should be thrown - document WITH slash', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: '/document',
+        };
+
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
+    });
+
+    it('partitionKey provided is same as DocumentStoreItem should be thrown - document WITHOUT slash', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: 'document',
+        };
+
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
+    });
 });
 
 describe('CosmosDbStorage', function () {
@@ -420,7 +548,7 @@ describe('CosmosDbStorage', function () {
     after('cleanup', reset);
 });
 
-// These tests use the same Cosmos DB configuration, but are not expected to call the Cosmos DB Emulator.
+// // These tests use the same Cosmos DB configuration, but are not expected to call the Cosmos DB Emulator.
 describe('CosmosDbStorage - Offline tests', function () {
     it('should return empty object when null is passed in to read()', async function () {
         const storage = new CosmosDbStorage(getSettings(), policyConfigurator);
