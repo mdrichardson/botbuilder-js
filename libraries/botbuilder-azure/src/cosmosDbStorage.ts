@@ -139,7 +139,7 @@ export class CosmosDbStorage implements Storage {
         if (!settings.collectionId || settings.collectionId.trim() === '') {
             throw new Error('The settings collection ID is required.');
         }
-        if (settings.partitionValue && !settings.partitionKey) {
+        if (settings.partitionValue && !settings.partitionKey || (settings.partitionValue && settings.partitionKey.trim() === '')) {
             throw new Error('The settings partitionKey is required when partitionValue is provided.');
         }
 
@@ -171,7 +171,8 @@ export class CosmosDbStorage implements Storage {
         }
 
         // Make partitionValue truly optional. If partitionValue is left `undefined`, storage won't work in previously-partitioned databases
-        this.settings.partitionValue = this.settings.partitionValue || '';
+        // But leave it undefined if partitoinKey is undefined
+        this.settings.partitionValue = this.settings.partitionValue || this.settings.partitionKey ? '' : undefined;
 
         // If the partitionKey is the same as a key in the DocumentStoreItem, it will cause an overwrite
         //    Creating a typed blankDocumentStoreItem will help keep this working if DocumentStoreItem changes
@@ -181,7 +182,7 @@ export class CosmosDbStorage implements Storage {
             realId: 'true',
             document: 'true',
         };
-        if (blankDocumentStoreItem[this.settings.partitionKey.substr(1)] === 'true') {
+        if (this.settings.partitionKey && blankDocumentStoreItem[this.settings.partitionKey.substr(1)] === 'true') {
             throw new Error(`partitionKey cannot be set to any: ${Object.keys(blankDocumentStoreItem)}`);
         }
     }
@@ -208,29 +209,27 @@ export class CosmosDbStorage implements Storage {
 
         await this.ensureContainerExists();
 
-        return await (async (): Promise<StoreItems> => {
-            const storeItems: StoreItems = {};
-            try {
-                const reqOptions = { partitionKey: this.settings.partitionValue };
-                const query = await this.container.items
-                                        .query(querySpec, reqOptions)
-                                        .toArray();
-                // Push documents to storeItems
-                query.result.map((resource) => {
-                    storeItems[resource.realId] = resource.document;
-                    storeItems[resource.realId].eTag = resource._etag;
-                });
-                return storeItems;
+        const storeItems: StoreItems = {};
+        try {
+            const reqOptions = { partitionKey: this.settings.partitionValue };
+            const query = await this.container.items
+                                    .query(querySpec, reqOptions)
+                                    .toArray();
+            // Push documents to storeItems
+            query.result.map((resource) => {
+                storeItems[resource.realId] = resource.document;
+                storeItems[resource.realId].eTag = resource._etag;
+            });
+            return storeItems;
 
-            } catch (err) {
-                // Throw unique error for 400s
-                if (err.code === 400) {
-                    throw this.errWithNewMessage(err, `Error initializing container. You might be using partitions in a non-partitioned DB or
-                    are not using partitions in a partitioned db that already contains partitioned data`);
-                }
-                throw this.errWithNewMessage(err, 'Error reading from container');
+        } catch (err) {
+            // Throw unique error for 400s
+            if (err.code === 400) {
+                throw this.errWithNewMessage(err, `Error initializing container. You might be using partitions in a non-partitioned DB or
+                are not using partitions in a partitioned db that already contains partitioned data`);
             }
-        })();
+            throw this.errWithNewMessage(err, 'Error reading from container');
+        }
     }
 
     public async write(changes: StoreItems): Promise<void> {
@@ -240,49 +239,45 @@ export class CosmosDbStorage implements Storage {
 
         await this.ensureContainerExists();
 
-        return await (async (): Promise<void> => {
-            Object.keys(changes).map(async (k: string) => {
-                const changesCopy: any = {...changes[k]};
+        Object.keys(changes).map(async (k: string) => {
+            const changesCopy: any = {...changes[k]};
 
-                // Remove etag from JSON object that was copied from IStoreItem.
-                // The ETag information is updated as an _etag attribute in the document metadata.
-                delete changesCopy.eTag;
-                const documentChange: DocumentStoreItem = {
-                    id: CosmosDbKeyEscape.escapeKey(k),
-                    realId: k,
-                    document: changesCopy,
-                    ...this.formatPartitionKeyValue(),
-                };
+            // Remove etag from JSON object that was copied from IStoreItem.
+            // The ETag information is updated as an _etag attribute in the document metadata.
+            delete changesCopy.eTag;
+            const documentChange: DocumentStoreItem = {
+                id: CosmosDbKeyEscape.escapeKey(k),
+                realId: k,
+                document: changesCopy,
+                ...this.formatPartitionKeyValue(),
+            };
 
-                return await (async () => {
-                    const eTag: string = changes[k].eTag;
-                    if (!eTag || eTag === '*') {
-                        // If new item or *, then insert or replace unconditionally
-                        try {
-                            await this.container.items
-                                    .upsert(documentChange, { disableAutomaticIdGeneration: true });
-                        } catch (err) {
-                            throw this.errWithNewMessage(err, 'Error upserting document');
-                        }
-                    } else if (eTag.length > 0) {
-                        // If we have an etag, do opt. concurrency replace
-                        try {
-                            const reqOptions = {
-                                accessCondition: { type: 'IfMatch', condition: eTag },
-                                partitionKey: this.settings.partitionValue,
-                            };
-                            await this.container
-                                    .item(CosmosDbKeyEscape.escapeKey(k), this.settings.partitionKey)
-                                    .replace(documentChange, reqOptions);
-                        } catch (err) {
-                            throw this.errWithNewMessage(err, 'Error replacing document');
-                        }
-                    } else {
-                        throw new Error(`etag empty`);
-                    }
-                })();
-            });
-        })();
+            const eTag: string = changes[k].eTag;
+            if (!eTag || eTag === '*') {
+                // If new item or *, then insert or replace unconditionally
+                try {
+                    await this.container.items
+                            .upsert(documentChange, { disableAutomaticIdGeneration: true });
+                } catch (err) {
+                    throw this.errWithNewMessage(err, 'Error upserting document');
+                }
+            } else if (eTag.length > 0) {
+                // If we have an etag, do opt. concurrency replace
+                try {
+                    const reqOptions = {
+                        accessCondition: { type: 'IfMatch', condition: eTag },
+                        partitionKey: this.settings.partitionValue,
+                    };
+                    await this.container
+                            .item(CosmosDbKeyEscape.escapeKey(k), this.settings.partitionKey)
+                            .replace(documentChange, reqOptions);
+                } catch (err) {
+                    throw this.errWithNewMessage(err, 'Error replacing document');
+                }
+            } else {
+                throw new Error(`etag empty`);
+            }
+        });
     }
 
     public async delete(keys: string[]): Promise<void> {
