@@ -33,7 +33,7 @@ export interface CosmosDbStorageSettings {
      */
     collectionId: string;
     /**
-     * The Partition Key. If specified, allows you to use CosmosDB partitioning.
+     * The Partition Key. If specified, allows you to use CosmosDB partitioning. Required if partitionValue is specified
      */
     partitionKey?: string;
     /**
@@ -138,6 +138,9 @@ export class CosmosDbStorage implements Storage {
 
         if (!settings.collectionId || settings.collectionId.trim() === '') {
             throw new Error('The settings collection ID is required.');
+        }
+        if (settings.partitionValue && !settings.partitionKey) {
+            throw new Error('The settings partitionKey is required when partitionValue is provided.');
         }
 
         this.settings = {...settings};
