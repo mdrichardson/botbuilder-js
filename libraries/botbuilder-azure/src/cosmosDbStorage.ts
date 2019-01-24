@@ -10,9 +10,6 @@ import { ConnectionPolicy, Container, CosmosClient, CosmosClientOptions, Databas
 import { Storage, StoreItems } from 'botbuilder';
 import { CosmosDbKeyEscape } from './cosmosDbKeyEscape';
 
-// @types/documentdb does not have DocumentBase definition
-const DocumentBase: any = require('documentdb').DocumentBase; // tslint:disable-line no-require-imports no-var-requires
-
 /**
  * Additional settings for configuring an instance of `CosmosDbStorage`.
  */
@@ -140,7 +137,7 @@ export class CosmosDbStorage implements Storage {
         this.settings = {...settings};
 
         // Invoke collectionPolicy delegate to further customize settings
-        const policy: ConnectionPolicy = new DocumentBase.ConnectionPolicy();
+        const policy: ConnectionPolicy = new ConnectionPolicy();
         if (connectionPolicyConfigurator && typeof connectionPolicyConfigurator === 'function') {
             connectionPolicyConfigurator(policy);
         }
