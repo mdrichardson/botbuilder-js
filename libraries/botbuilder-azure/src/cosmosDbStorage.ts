@@ -269,7 +269,7 @@ export class CosmosDbStorage implements Storage {
                         partitionKey: this.settings.partitionValue,
                     };
                     await this.container
-                            .item(CosmosDbKeyEscape.escapeKey(k), this.settings.partitionKey)
+                            .item(CosmosDbKeyEscape.escapeKey(k), this.settings.partitionValue)
                             .replace(documentChange, reqOptions);
                 } catch (err) {
                     throw this.errWithNewMessage(err, 'Error replacing document');
