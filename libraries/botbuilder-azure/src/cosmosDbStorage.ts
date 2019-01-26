@@ -291,7 +291,7 @@ export class CosmosDbStorage implements Storage {
             try {
                 const reqOptions = { partitionKey: this.settings.partitionValue };
                 await this.container
-                    .item(CosmosDbKeyEscape.escapeKey(k), this.settings.partitionKey)
+                    .item(CosmosDbKeyEscape.escapeKey(k), this.settings.partitionValue)
                     .delete(reqOptions);
             } catch (err) {
                 // Throw errors for everything except trying to delete a document that doesn't exist
