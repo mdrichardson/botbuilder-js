@@ -135,434 +135,430 @@ testStorage = function () {
                 nockDone;
             });
         });
+    
+
+        it(`invalid eTag - ${settingsCombo.name}`, function () {
+            return usingNock(this.test, mode, options)
+            .then(({nockDone, context}) => {
+                let storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
+                return storage.write({ keyUpdate2: { count: 1 } })
+                    .then(() => storage.read(['keyUpdate2']))
+                    .then((result) => {
+                        result.keyUpdate2.count = 2;
+                        return storage.write(result).then(() => {
+                            result.keyUpdate2.count = 3;
+                            return storage.write(result)
+                                .then(() => {assert(false, `should throw an exception on second write with same etag: ${print(reason)}`)})
+                                .catch((reason) => { });
+                        });
+                    })
+                    .catch(reason => {
+                        if (reason.code == 'ECONNREFUSED') {
+                            console.log(noEmulatorMessage);
+                        } else {
+                            assert(false, `should not throw: ${print(reason)}`);
+                        }
+                    })
+                    .then(nockDone);
+            });
+        });
+
+        it(`wildcard eTag - ${settingsCombo.name}`, function () {
+            return usingNock(this.test, mode, options)
+            .then(({nockDone, context}) => {
+                let storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
+                return storage.write({ keyUpdate3: { count: 1 } })
+                    .then(() => storage.read(['keyUpdate3']))
+                    .then((result) => {
+                        result.keyUpdate3.eTag = '*';
+                        result.keyUpdate3.count = 2;
+                        return storage.write(result).then(() => {
+                            result.keyUpdate3.count = 3;
+                            return storage.write(result)
+                                .catch((reason) => assert(false, `should NOT fail on etag writes with wildcard: ${print(reason)}`));
+                        });
+                    })
+                    .catch(reason => {
+                        if (reason.code == 'ECONNREFUSED') {
+                            console.log(noEmulatorMessage);
+                        } else {
+                            assert(false, `should not throw: ${print(reason)}`);
+                        }
+                    })
+                    .then(nockDone);
+            });
+        });
+
+        it(`delete unknown - ${settingsCombo.name}`, function () {
+            return usingNock(this.test, mode, options)
+            .then(({nockDone, context}) => {
+                let storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
+                return storage.delete(['unknown'])
+                    .catch(reason => {
+                        if (reason.code == 'ECONNREFUSED') {
+                            console.log(noEmulatorMessage);
+                        } else {
+                            console.log(reason)
+                            assert(false, `should not throw: ${print(reason)}`);
+                        }
+                    })
+                    .then(nockDone);
+            });
+        });
+
+        it(`delete known - ${settingsCombo.name}`, async function () {
+            const { nockDone, context } = await usingNock(this.test, mode, options);
+            let storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
+            try {
+                await storage.write({ delete1: { count: 1 } });
+                await storage.delete(['delete1']);
+                const result = await storage.read(['delete1']);
+                assert(!result.delete1, 'delete1 should not be found');
+            } catch (reason) {
+                if (reason.code == 'ECONNREFUSED') {
+                    console.log(noEmulatorMessage);
+                } else {
+                    assert(false, `should not throw: ${print(reason)}`);
+                }
+            }
+            nockDone;
+        });
+
+        it(`batch operations - ${settingsCombo.name}`, function () {
+            return usingNock(this.test, mode, options)
+            .then(({nockDone, context}) => {
+                let storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
+                return storage.write({
+                    batch1: { count: 10 },
+                    batch2: { count: 20 },
+                    batch3: { count: 30 },
+                })
+                .then(() => storage.read(['batch1', 'batch2', 'batch3']))
+                .then((result) => {
+                    assert(result.batch1 != null, 'batch1 should exist and doesnt');
+                    assert(result.batch2 != null, 'batch2 should exist and doesnt');
+                    assert(result.batch3 != null, 'batch3 should exist and doesnt');
+                    assert(result.batch1.count > 0, 'batch1 should have count and doesnt');
+                    assert(result.batch2.count > 0, 'batch2 should have count and doesnt');
+                    assert(result.batch3.count > 0, 'batch3 should have count  and doesnt');
+                    assert(result.batch1.eTag != null, 'batch1 should have etag and doesnt');
+                    assert(result.batch2.eTag != null, 'batch2 should have etag and doesnt');
+                    assert(result.batch3.eTag != null, 'batch3 should have etag  and doesnt');
+                })
+                .then(() => storage.delete(['batch1', 'batch2', 'batch3']))
+                .then(() => storage.read(['batch1', 'batch2', 'batch3']))
+                .then((result) => {
+                    assert(!result.batch1, 'batch1 should not exist and does');
+                    assert(!result.batch2, 'batch2 should not exist and does');
+                    assert(!result.batch3, 'batch3 should not exist and does');
+                })
+                .catch(reason => {
+                    if (reason.code == 'ECONNREFUSED') {
+                        console.log(noEmulatorMessage);
+                    } else {
+                        assert(false, `should not throw: ${print(reason)}`);
+                    }
+                })
+                .then(nockDone);
+            });
+        });
+
+        it(`crazy keys work - ${settingsCombo.name}`, function () {
+            return usingNock(this.test, mode, options)
+            .then(({nockDone, context}) => {
+                let storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
+                let obj = {};
+                let crazyKey = '!@#$%^&*()_+??><":QASD~`';
+                obj[crazyKey] = { count: 1 };
+                return storage.write(obj)
+                    .then(() => storage.read([crazyKey]))
+                    .then((result) => {
+                        assert(result != null, 'result should be object');
+                        assert(result[crazyKey], 'keyCreate should be defined');
+                        assert(result[crazyKey].count == 1, 'object should have count of 1');
+                        assert(result[crazyKey].eTag, 'ETag should be defined');
+                    })
+                    .catch(reason => {
+                        if (reason.code == 'ECONNREFUSED') {
+                            console.log(noEmulatorMessage);
+                        } else {
+                            console.log(reason)
+                            assert(false, `should not throw: ${print(reason)}`);
+                        }
+                    })
+                    .then(nockDone);
+            });
+        });
+
+        it(`should call connectionPolicyConfigurator - ${settingsCombo.name}`, function () {
+            let policy = null;
+            let storage = new CosmosDbStorage(settingsCombo.settings, (policyInstance) => policy = policyInstance);
+
+            assert(policy != null, 'connectionPolicyConfigurator should have been called.')
+        });
     });
-
-    // it('invalid eTag', function () {
-    //     return usingNock(this.test, mode, options)
-    //     .then(({nockDone, context}) => {
-    //         let storage = new CosmosDbStorage(getSettings(), policyConfigurator);
-    //         return storage.write({ keyUpdate2: { count: 1 } })
-    //             .then(() => storage.read(['keyUpdate2']))
-    //             .then((result) => {
-    //                 result.keyUpdate2.count = 2;
-    //                 return storage.write(result).then(() => {
-    //                     result.keyUpdate2.count = 3;
-    //                     return storage.write(result)
-    //                         .then(() => {assert(false, `should throw an exception on second write with same etag: ${print(reason)}`)})
-    //                         .catch((reason) => { });
-    //                 });
-    //             })
-    //             .catch(reason => {
-    //                 if (reason.code == 'ECONNREFUSED') {
-    //                     console.log(noEmulatorMessage);
-    //                 } else {
-    //                     assert(false, `should not throw: ${print(reason)}`);
-    //                 }
-    //             })
-    //             .then(nockDone);
-    //     });
-    // });
-
-    // it('wildcard eTag', function () {
-    //     return usingNock(this.test, mode, options)
-    //     .then(({nockDone, context}) => {
-    //         let storage = new CosmosDbStorage(getSettings(), policyConfigurator);
-    //         return storage.write({ keyUpdate3: { count: 1 } })
-    //             .then(() => storage.read(['keyUpdate3']))
-    //             .then((result) => {
-    //                 result.keyUpdate3.eTag = '*';
-    //                 result.keyUpdate3.count = 2;
-    //                 return storage.write(result).then(() => {
-    //                     result.keyUpdate3.count = 3;
-    //                     return storage.write(result)
-    //                         .catch((reason) => assert(false, `should NOT fail on etag writes with wildcard: ${print(reason)}`));
-    //                 });
-    //             })
-    //             .catch(reason => {
-    //                 if (reason.code == 'ECONNREFUSED') {
-    //                     console.log(noEmulatorMessage);
-    //                 } else {
-    //                     assert(false, `should not throw: ${print(reason)}`);
-    //                 }
-    //             })
-    //             .then(nockDone);
-    //     });
-    // });
-
-    // it('delete unknown', function () {
-    //     return usingNock(this.test, mode, options)
-    //     .then(({nockDone, context}) => {
-    //         let storage = new CosmosDbStorage(getSettings(), policyConfigurator);
-    //         return storage.delete(['unknown'])
-    //             .catch(reason => {
-    //                 if (reason.code == 'ECONNREFUSED') {
-    //                     console.log(noEmulatorMessage);
-    //                 } else {
-    //                     console.log(reason)
-    //                     assert(false, `should not throw: ${print(reason)}`);
-    //                 }
-    //             })
-    //             .then(nockDone);
-    //     });
-    // });
-
-    // it('delete known', function () {
-    //     return usingNock(this.test, mode, options)
-    //     .then(({nockDone, context}) => {
-    //         let storage = new CosmosDbStorage(getSettings(), policyConfigurator);
-    //         return storage.write({ delete1: { count: 1 } })
-    //             .then(() => storage.delete(['delete1']))
-    //             .then(() => storage.read(['delete1']))
-    //             .then(result => {
-    //                 // if (result.delete1)
-    //                 //     console.log(JSON.stringify(result.delete1));
-    //                 assert(!result.delete1, 'delete1 should not be found');
-    //             })
-    //             .catch(reason => {
-    //                 if (reason.code == 'ECONNREFUSED') {
-    //                     console.log(noEmulatorMessage);
-    //                 } else {
-    //                     assert(false, `should not throw: ${print(reason)}`);
-    //                 }
-    //             })
-    //             .then(nockDone);
-    //     });
-    // });
-
-    // it('batch operations', function () {
-    //     return usingNock(this.test, mode, options)
-    //     .then(({nockDone, context}) => {
-    //         let storage = new CosmosDbStorage(getSettings(), policyConfigurator);
-    //         return storage.write({
-    //             batch1: { count: 10 },
-    //             batch2: { count: 20 },
-    //             batch3: { count: 30 },
-    //         })
-    //         .then(() => storage.read(['batch1', 'batch2', 'batch3']))
-    //         .then((result) => {
-    //             assert(result.batch1 != null, 'batch1 should exist and doesnt');
-    //             assert(result.batch2 != null, 'batch2 should exist and doesnt');
-    //             assert(result.batch3 != null, 'batch3 should exist and doesnt');
-    //             assert(result.batch1.count > 0, 'batch1 should have count and doesnt');
-    //             assert(result.batch2.count > 0, 'batch2 should have count and doesnt');
-    //             assert(result.batch3.count > 0, 'batch3 should have count  and doesnt');
-    //             assert(result.batch1.eTag != null, 'batch1 should have etag and doesnt');
-    //             assert(result.batch2.eTag != null, 'batch2 should have etag and doesnt');
-    //             assert(result.batch3.eTag != null, 'batch3 should have etag  and doesnt');
-    //         })
-    //         .then(() => storage.delete(['batch1', 'batch2', 'batch3']))
-    //         .then(() => storage.read(['batch1', 'batch2', 'batch3']))
-    //         .then((result) => {
-    //             assert(!result.batch1, 'batch1 should not exist and does');
-    //             assert(!result.batch2, 'batch2 should not exist and does');
-    //             assert(!result.batch3, 'batch3 should not exist and does');
-    //         })
-    //         .catch(reason => {
-    //             if (reason.code == 'ECONNREFUSED') {
-    //                 console.log(noEmulatorMessage);
-    //             } else {
-    //                 assert(false, `should not throw: ${print(reason)}`);
-    //             }
-    //         })
-    //         .then(nockDone);
-    //     });
-    // });
-
-    // it('crazy keys work', function () {
-    //     return usingNock(this.test, mode, options)
-    //     .then(({nockDone, context}) => {
-    //         let storage = new CosmosDbStorage(getSettings(), policyConfigurator);
-    //         let obj = {};
-    //         let crazyKey = '!@#$%^&*()_+??><":QASD~`';
-    //         obj[crazyKey] = { count: 1 };
-    //         return storage.write(obj)
-    //             .then(() => storage.read([crazyKey]))
-    //             .then((result) => {
-    //                 assert(result != null, 'result should be object');
-    //                 assert(result[crazyKey], 'keyCreate should be defined');
-    //                 assert(result[crazyKey].count == 1, 'object should have count of 1');
-    //                 assert(result[crazyKey].eTag, 'ETag should be defined');
-    //             })
-    //             .catch(reason => {
-    //                 if (reason.code == 'ECONNREFUSED') {
-    //                     console.log(noEmulatorMessage);
-    //                 } else {
-    //                     console.log(reason)
-    //                     assert(false, `should not throw: ${print(reason)}`);
-    //                 }
-    //             })
-    //             .then(nockDone);
-    //     });
-    // });
-
-    // it('should call connectionPolicyConfigurator', function () {
-    //     let policy = null;
-    //     let storage = new CosmosDbStorage(getSettings(), (policyInstance) => policy = policyInstance);
-
-    //     assert(policy != null, 'connectionPolicyConfigurator should have been called.')
-    // });
 }
 
 describe('CosmosDbStorage Constructor', function() {
-    // it('missing settings should throw', function() {
-    //     assert.throws(() => new CosmosDbStorage(), Error, 'constructor should have thrown error about missing settings.');
-    // });
+    it('missing settings should throw', function() {
+        assert.throws(() => new CosmosDbStorage(), Error, 'constructor should have thrown error about missing settings.');
+    });
 
-    // it('missing settings endpoint should be thrown - null value', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: null,
-    //         authKey: 'testKey',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: 'testCollectionID'            
-    //     };
+    it('missing settings endpoint should be thrown - null value', function() {
+        let testSettings = {
+            serviceEndpoint: null,
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID'            
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing service Endpoint.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing service Endpoint.')
+    });
 
-    // it('missing settings endpoint should be thrown - empty value', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: '',
-    //         authKey: 'testKey',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: 'testCollectionID'            
-    //     };
+    it('missing settings endpoint should be thrown - empty value', function() {
+        let testSettings = {
+            serviceEndpoint: '',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID'            
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing service Endpoint.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing service Endpoint.')
+    });
 
-    // it('missing settings endpoint should be thrown - white spaces', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: '   ',
-    //         authKey: 'testKey',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: 'testCollectionID'            
-    //     };
+    it('missing settings endpoint should be thrown - white spaces', function() {
+        let testSettings = {
+            serviceEndpoint: '   ',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID'            
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing service Endpoint.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing service Endpoint.')
+    });
 
-    // it('missing settings authKey should be thrown - null value', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: null,
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: 'testCollectionID'            
-    //     };
+    it('missing settings authKey should be thrown - null value', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: null,
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID'            
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing authKey.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing authKey.')
+    });
 
-    // it('missing settings authKey should be thrown - empty value', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: '',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: 'testCollectionID'            
-    //     };
+    it('missing settings authKey should be thrown - empty value', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: '',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID'            
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing authKey.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing authKey.')
+    });
 
-    // it('missing settings authKey should be thrown - white spaces', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: '   ',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: 'testCollectionID'            
-    //     };
+    it('missing settings authKey should be thrown - white spaces', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: '   ',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID'            
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing authKey.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing authKey.')
+    });
 
-    // it('missing settings databaseId should be thrown - null value', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: 'testKey',
-    //         databaseId: null,
-    //         collectionId: 'testCollectionID'            
-    //     };
+    it('missing settings databaseId should be thrown - null value', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: null,
+            collectionId: 'testCollectionID'            
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing database ID.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing database ID.')
+    });
 
-    // it('missing settings databaseId should be thrown - empty value', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: 'testKey',
-    //         databaseId: '',
-    //         collectionId: 'testCollectionID'            
-    //     };
+    it('missing settings databaseId should be thrown - empty value', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: '',
+            collectionId: 'testCollectionID'            
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing database ID.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing database ID.')
+    });
 
-    // it('missing settings databaseId should be thrown - white spaces', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: 'testKey',
-    //         databaseId: '    ',
-    //         collectionId: 'testCollectionID'            
-    //     };
+    it('missing settings databaseId should be thrown - white spaces', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: '    ',
+            collectionId: 'testCollectionID'            
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing database ID.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing database ID.')
+    });
 
-    // it('missing settings collectionId should be thrown - null value', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: 'testKey',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: null            
-    //     };
+    it('missing settings collectionId should be thrown - null value', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: null            
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing collection ID.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing collection ID.')
+    });
 
-    // it('missing settings collectionId should be thrown - empty value', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: 'testKey',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: ''            
-    //     };
+    it('missing settings collectionId should be thrown - empty value', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: ''            
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing collection ID.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing collection ID.')
+    });
 
-    // it('missing settings collectionId should be thrown - white spaces', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: 'testKey',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: '    '            
-    //     };
+    it('missing settings collectionId should be thrown - white spaces', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: '    '            
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing collection ID.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing collection ID.')
+    });
 
-    // it('partitionValue provided but not partitionKey - null value', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: 'testKey',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: 'testCollectionID',
-    //         partitionKey: null,
-    //         partitionValue: 'testPartitionValue',
-    //     };
+    it('partitionValue provided but not partitionKey - null value', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: null,
+            partitionValue: 'testPartitionValue',
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing partitionKey.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing partitionKey.')
+    });
 
-    // it('partitionValue provided but not partitionKey should be thrown - empty value', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: 'testKey',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: 'testCollectionID',
-    //         partitionKey: '',
-    //         partitionValue: 'testPartitionValue',
-    //     };
+    it('partitionValue provided but not partitionKey should be thrown - empty value', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: '',
+            partitionValue: 'testPartitionValue',
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing partitionKey.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing partitionKey.')
+    });
 
-    // it('partitionValue provided but not partitionKey should be thrown - white spaces', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: 'testKey',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: 'testCollectionID',
-    //         partitionKey: '               ',
-    //         partitionValue: 'testPartitionValue',
-    //     };
+    it('partitionValue provided but not partitionKey should be thrown - white spaces', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: '               ',
+            partitionValue: 'testPartitionValue',
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing partitionKey.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing partitionKey.')
+    });
 
-    // it('partitionValue provided but not partitionKey should be thrown - white spaces', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: 'testKey',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: 'testCollectionID',
-    //         partitionKey: '               ',
-    //         partitionValue: 'testPartitionValue',
-    //     };
+    it('partitionValue provided but not partitionKey should be thrown - white spaces', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: '               ',
+            partitionValue: 'testPartitionValue',
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing partitionKey.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about missing partitionKey.')
+    });
 
-    // it('partitionKey provided is same as DocumentStoreItem should be thrown - id WITH slash', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: 'testKey',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: 'testCollectionID',
-    //         partitionKey: '/id',
-    //     };
+    it('partitionKey provided is same as DocumentStoreItem should be thrown - id WITH slash', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: '/id',
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
+    });
 
-    // it('partitionKey provided is same as DocumentStoreItem should be thrown - id WITHOUT slash', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: 'testKey',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: 'testCollectionID',
-    //         partitionKey: 'id',
-    //     };
+    it('partitionKey provided is same as DocumentStoreItem should be thrown - id WITHOUT slash', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: 'id',
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
+    });
 
-    // it('partitionKey provided is same as DocumentStoreItem should be thrown - realId WITH slash', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: 'testKey',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: 'testCollectionID',
-    //         partitionKey: '/realId',
-    //     };
+    it('partitionKey provided is same as DocumentStoreItem should be thrown - realId WITH slash', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: '/realId',
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
+    });
 
-    // it('partitionKey provided is same as DocumentStoreItem should be thrown - realId WITHOUT slash', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: 'testKey',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: 'testCollectionID',
-    //         partitionKey: 'realId',
-    //     };
+    it('partitionKey provided is same as DocumentStoreItem should be thrown - realId WITHOUT slash', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: 'realId',
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
+    });
 
-    // it('partitionKey provided is same as DocumentStoreItem should be thrown - document WITH slash', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: 'testKey',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: 'testCollectionID',
-    //         partitionKey: '/document',
-    //     };
+    it('partitionKey provided is same as DocumentStoreItem should be thrown - document WITH slash', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: '/document',
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
+    });
 
-    // it('partitionKey provided is same as DocumentStoreItem should be thrown - document WITHOUT slash', function() {
-    //     let testSettings = {
-    //         serviceEndpoint: 'testEndpoint',
-    //         authKey: 'testKey',
-    //         databaseId: 'testDataBaseID',
-    //         collectionId: 'testCollectionID',
-    //         partitionKey: 'document',
-    //     };
+    it('partitionKey provided is same as DocumentStoreItem should be thrown - document WITHOUT slash', function() {
+        let testSettings = {
+            serviceEndpoint: 'testEndpoint',
+            authKey: 'testKey',
+            databaseId: 'testDataBaseID',
+            collectionId: 'testCollectionID',
+            partitionKey: 'document',
+        };
 
-    //     assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
-    // });
+        assert.throws(() => new CosmosDbStorage(testSettings), Error, 'constructor should have thrown error about invalid partitionKey.')
+    });
 });
 
 describe('CosmosDbStorage', function () {
@@ -572,37 +568,37 @@ describe('CosmosDbStorage', function () {
     after('cleanup', reset);
 });
 
-// // These tests use the same Cosmos DB configuration, but are not expected to call the Cosmos DB Emulator.
-// describe('CosmosDbStorage - Offline tests', function () {
-//     it('should return empty object when null is passed in to read()', async function () {
-//         const storage = new CosmosDbStorage(getSettings(), policyConfigurator);
-//         const storeItems = await storage.read(null);
-//         assert.deepEqual(storeItems, {}, `did not receive empty object, instead received ${ JSON.stringify(storeItems) }`);
-//     });
+// These tests use the same Cosmos DB configuration, but are not expected to call the Cosmos DB Emulator.
+describe('CosmosDbStorage - Offline tests', function () {
+    it('should return empty object when null is passed in to read()', async function () {
+        const storage = new CosmosDbStorage(getSettings(), policyConfigurator);
+        const storeItems = await storage.read(null);
+        assert.deepEqual(storeItems, {}, `did not receive empty object, instead received ${ JSON.stringify(storeItems) }`);
+    });
 
-//     it('should return empty object when no keys are passed in to read()', async function () {
-//         const storage = new CosmosDbStorage(getSettings(), policyConfigurator);
-//         const storeItems = await storage.read([]);
-//         assert.deepEqual(storeItems, {}, `did not receive empty object, instead received ${ JSON.stringify(storeItems) }`);
-//     });
+    it('should return empty object when no keys are passed in to read()', async function () {
+        const storage = new CosmosDbStorage(getSettings(), policyConfigurator);
+        const storeItems = await storage.read([]);
+        assert.deepEqual(storeItems, {}, `did not receive empty object, instead received ${ JSON.stringify(storeItems) }`);
+    });
 
-//     it('should not blow up when no changes are passed in to write()', async function () {
-//         const storage = new CosmosDbStorage(getSettings(), policyConfigurator);
-//         const storeItems = await storage.write({});
-//     });
+    it('should not blow up when no changes are passed in to write()', async function () {
+        const storage = new CosmosDbStorage(getSettings(), policyConfigurator);
+        const storeItems = await storage.write({});
+    });
 
-//     it('should not blow up when null is passed in to write()', async function () {
-//         const storage = new CosmosDbStorage(getSettings(), policyConfigurator);
-//         const storeItems = await storage.write(null);
-//     });
+    it('should not blow up when null is passed in to write()', async function () {
+        const storage = new CosmosDbStorage(getSettings(), policyConfigurator);
+        const storeItems = await storage.write(null);
+    });
 
-//     it('should not blow up when no keys are passed in to delete()', async function () {
-//         const storage = new CosmosDbStorage(getSettings(), policyConfigurator);
-//         const storeItems = await storage.delete([]);
-//     });
+    it('should not blow up when no keys are passed in to delete()', async function () {
+        const storage = new CosmosDbStorage(getSettings(), policyConfigurator);
+        const storeItems = await storage.delete([]);
+    });
 
-//     it('should not blow up when null is passed in to delete()', async function () {
-//         const storage = new CosmosDbStorage(getSettings(), policyConfigurator);
-//         const storeItems = await storage.delete(null);
-//     });
-// });
+    it('should not blow up when null is passed in to delete()', async function () {
+        const storage = new CosmosDbStorage(getSettings(), policyConfigurator);
+        const storeItems = await storage.delete(null);
+    });
+});
