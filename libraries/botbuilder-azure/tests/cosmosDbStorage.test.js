@@ -70,10 +70,10 @@ testStorage = function () {
 
     settingsCombinations.forEach(function async (settingsCombo) {
 
-        it(`read of unknown key - ${settingsCombo.name}`, function () {
+        it(`read of unknown key - ${settingsCombo.name}`, async function () {
             return usingNock(this.test, mode, options)
             .then(({nockDone, context}) => {
-                let storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
+                const storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
                 return storage.read(['unk'])
                 .then((result) => {
                     assert(result != null, 'result should be object');
@@ -93,7 +93,7 @@ testStorage = function () {
         it(`key creation - ${settingsCombo.name}`, function () {
             return usingNock(this.test, mode, options)
             .then(({nockDone, context}) => {
-                let storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
+                const storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
                 return storage.write({ keyCreate: { count: 1 } })
                 .then(() => storage.read(['keyCreate']))
                 .then((result) => {
@@ -117,7 +117,7 @@ testStorage = function () {
             return usingNock(this.test, mode, options)
             .then(async ({nockDone, context}) => {
                 try {
-                    let storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
+                    const storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
                     await storage.write({ keyUpdate: { count: 1 } });
                     let result = await storage.read(['keyUpdate']);
                     result.keyUpdate.count = 2;
@@ -132,87 +132,83 @@ testStorage = function () {
                         assert(false, `should not throw: ${print(reason)}`);
                     }
                 }
-                nockDone;
+                return nockDone;
             });
         });
     
 
-        it(`invalid eTag - ${settingsCombo.name}`, function () {
-            return usingNock(this.test, mode, options)
-            .then(({nockDone, context}) => {
-                let storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
-                return storage.write({ keyUpdate2: { count: 1 } })
-                    .then(() => storage.read(['keyUpdate2']))
-                    .then((result) => {
-                        result.keyUpdate2.count = 2;
-                        return storage.write(result).then(() => {
-                            result.keyUpdate2.count = 3;
-                            return storage.write(result)
-                                .then(() => {assert(false, `should throw an exception on second write with same etag: ${print(reason)}`)})
-                                .catch((reason) => { });
-                        });
-                    })
-                    .catch(reason => {
-                        if (reason.code == 'ECONNREFUSED') {
-                            console.log(noEmulatorMessage);
-                        } else {
-                            assert(false, `should not throw: ${print(reason)}`);
-                        }
-                    })
-                    .then(nockDone);
-            });
+        it(`invalid eTag - ${settingsCombo.name}`, async function () {
+            const { nockDone, context } = await usingNock(this.test, mode, options);
+            const storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
+            let result;
+            try {
+                await storage.write({ keyUpdate2: { count: 1 } });
+                result = await storage.read(['keyUpdate2']);
+                result.keyUpdate2.count = 2;
+                await storage.write(result);
+            } catch (reason) {
+                if (reason.code == 'ECONNREFUSED') {
+                    console.log(noEmulatorMessage);
+                } else {
+                    assert(false, `should not throw: ${print(reason)}`);
+                }
+            }
+            result.keyUpdate2.count = 3;
+            try {
+                await storage.write(result);
+                assert(false, `should throw an exception on second write with same etag: ${print(reason)}`)
+            } catch (reason) { }
+            return nockDone;
         });
 
-        it(`wildcard eTag - ${settingsCombo.name}`, function () {
-            return usingNock(this.test, mode, options)
-            .then(({nockDone, context}) => {
-                let storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
-                return storage.write({ keyUpdate3: { count: 1 } })
-                    .then(() => storage.read(['keyUpdate3']))
-                    .then((result) => {
-                        result.keyUpdate3.eTag = '*';
-                        result.keyUpdate3.count = 2;
-                        return storage.write(result).then(() => {
-                            result.keyUpdate3.count = 3;
-                            return storage.write(result)
-                                .catch((reason) => assert(false, `should NOT fail on etag writes with wildcard: ${print(reason)}`));
-                        });
-                    })
-                    .catch(reason => {
-                        if (reason.code == 'ECONNREFUSED') {
-                            console.log(noEmulatorMessage);
-                        } else {
-                            assert(false, `should not throw: ${print(reason)}`);
-                        }
-                    })
-                    .then(nockDone);
-            });
+        it(`wildcard eTag - ${settingsCombo.name}`, async function () {
+            const { nockDone, context } = await usingNock(this.test, mode, options);
+            const storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
+            let result;
+            try {
+                await storage.write({ keyUpdate3: { count: 1 } });
+                result = await storage.read(['keyUpdate3']);
+                result.keyUpdate3.eTag = '*';
+                result.keyUpdate3.count = 2;
+            } catch (reason) {
+                if (reason.code == 'ECONNREFUSED') {
+                    console.log(noEmulatorMessage);
+                } else {
+                    assert(false, `should not throw: ${print(reason)}`);
+                }
+            }
+            try {
+                await storage.write(result);
+                result.keyUpdate3.count = 3;
+                await storage.write(result);
+            } catch (reason) {
+                assert(false, `should NOT fail on etag writes with wildcard: ${print(reason)}`);
+            }
+            return nockDone;
         });
 
-        it(`delete unknown - ${settingsCombo.name}`, function () {
-            return usingNock(this.test, mode, options)
-            .then(({nockDone, context}) => {
-                let storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
-                return storage.delete(['unknown'])
-                    .catch(reason => {
-                        if (reason.code == 'ECONNREFUSED') {
-                            console.log(noEmulatorMessage);
-                        } else {
-                            console.log(reason)
-                            assert(false, `should not throw: ${print(reason)}`);
-                        }
-                    })
-                    .then(nockDone);
-            });
+        it(`delete unknown - ${settingsCombo.name}`, async function () {
+            const { nockDone, context } = await usingNock(this.test, mode, options);
+            const storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
+            try {
+                await storage.delete(['unknown'])
+            } catch (err) {
+                if (reason.code == 'ECONNREFUSED') {
+                    console.log(noEmulatorMessage);
+                } else {
+                    assert(false, `should not throw: ${print(reason)}`);
+                }
+            }
+            return nockDone;
         });
 
         it(`delete known - ${settingsCombo.name}`, async function () {
             const { nockDone, context } = await usingNock(this.test, mode, options);
-            let storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
+            const storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
             try {
                 await storage.write({ delete1: { count: 1 } });
                 await storage.delete(['delete1']);
-                const result = await storage.read(['delete1']);
+                let result = await storage.read(['delete1']);
                 assert(!result.delete1, 'delete1 should not be found');
             } catch (reason) {
                 if (reason.code == 'ECONNREFUSED') {
@@ -221,78 +217,73 @@ testStorage = function () {
                     assert(false, `should not throw: ${print(reason)}`);
                 }
             }
-            nockDone;
+            return nockDone;
         });
 
-        it(`batch operations - ${settingsCombo.name}`, function () {
-            return usingNock(this.test, mode, options)
-            .then(({nockDone, context}) => {
-                let storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
-                return storage.write({
+        it(`batch operations - ${settingsCombo.name}`, async function () {
+            const { nockDone, context } = await usingNock(this.test, mode, options);
+            const storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
+            try {
+                await storage.write({
                     batch1: { count: 10 },
                     batch2: { count: 20 },
                     batch3: { count: 30 },
                 })
-                .then(() => storage.read(['batch1', 'batch2', 'batch3']))
-                .then((result) => {
-                    assert(result.batch1 != null, 'batch1 should exist and doesnt');
-                    assert(result.batch2 != null, 'batch2 should exist and doesnt');
-                    assert(result.batch3 != null, 'batch3 should exist and doesnt');
-                    assert(result.batch1.count > 0, 'batch1 should have count and doesnt');
-                    assert(result.batch2.count > 0, 'batch2 should have count and doesnt');
-                    assert(result.batch3.count > 0, 'batch3 should have count  and doesnt');
-                    assert(result.batch1.eTag != null, 'batch1 should have etag and doesnt');
-                    assert(result.batch2.eTag != null, 'batch2 should have etag and doesnt');
-                    assert(result.batch3.eTag != null, 'batch3 should have etag  and doesnt');
-                })
-                .then(() => storage.delete(['batch1', 'batch2', 'batch3']))
-                .then(() => storage.read(['batch1', 'batch2', 'batch3']))
-                .then((result) => {
-                    assert(!result.batch1, 'batch1 should not exist and does');
-                    assert(!result.batch2, 'batch2 should not exist and does');
-                    assert(!result.batch3, 'batch3 should not exist and does');
-                })
-                .catch(reason => {
-                    if (reason.code == 'ECONNREFUSED') {
-                        console.log(noEmulatorMessage);
-                    } else {
-                        assert(false, `should not throw: ${print(reason)}`);
-                    }
-                })
-                .then(nockDone);
-            });
+                let result = await storage.read(['batch1', 'batch2', 'batch3']);
+                
+                assert(result.batch1 != null, 'batch1 should exist and doesnt');
+                assert(result.batch2 != null, 'batch2 should exist and doesnt');
+                assert(result.batch3 != null, 'batch3 should exist and doesnt');
+                assert(result.batch1.count > 0, 'batch1 should have count and doesnt');
+                assert(result.batch2.count > 0, 'batch2 should have count and doesnt');
+                assert(result.batch3.count > 0, 'batch3 should have count  and doesnt');
+                assert(result.batch1.eTag != null, 'batch1 should have etag and doesnt');
+                assert(result.batch2.eTag != null, 'batch2 should have etag and doesnt');
+                assert(result.batch3.eTag != null, 'batch3 should have etag  and doesnt');
+    
+                await storage.delete(['batch1', 'batch2', 'batch3']);
+                result = await storage.read(['batch1', 'batch2', 'batch3']);
+    
+                assert(!result.batch1, 'batch1 should not exist and does');
+                assert(!result.batch2, 'batch2 should not exist and does');
+                assert(!result.batch3, 'batch3 should not exist and does');
+            } catch (reason) {
+                if (reason.code == 'ECONNREFUSED') {
+                    console.log(noEmulatorMessage);
+                } else {
+                    assert(false, `should not throw: ${print(reason)}`);
+                }
+            }
+            return nockDone;
         });
 
-        it(`crazy keys work - ${settingsCombo.name}`, function () {
-            return usingNock(this.test, mode, options)
-            .then(({nockDone, context}) => {
-                let storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
-                let obj = {};
-                let crazyKey = '!@#$%^&*()_+??><":QASD~`';
-                obj[crazyKey] = { count: 1 };
-                return storage.write(obj)
-                    .then(() => storage.read([crazyKey]))
-                    .then((result) => {
-                        assert(result != null, 'result should be object');
-                        assert(result[crazyKey], 'keyCreate should be defined');
-                        assert(result[crazyKey].count == 1, 'object should have count of 1');
-                        assert(result[crazyKey].eTag, 'ETag should be defined');
-                    })
-                    .catch(reason => {
-                        if (reason.code == 'ECONNREFUSED') {
-                            console.log(noEmulatorMessage);
-                        } else {
-                            console.log(reason)
-                            assert(false, `should not throw: ${print(reason)}`);
-                        }
-                    })
-                    .then(nockDone);
-            });
+        it(`crazy keys work - ${settingsCombo.name}`, async function () {
+            const { nockDone, context } = await usingNock(this.test, mode, options);
+            const storage = new CosmosDbStorage(settingsCombo.settings, policyConfigurator);
+            let obj = {};
+            let crazyKey = '!@#$%^&*()_+??><":QASD~`';
+            obj[crazyKey] = { count: 1 };
+            try {
+                await storage.write(obj);
+                let result = await storage.read([crazyKey]);
+                
+                assert(result != null, 'result should be object');
+                assert(result[crazyKey], 'keyCreate should be defined');
+                assert(result[crazyKey].count == 1, 'object should have count of 1');
+                assert(result[crazyKey].eTag, 'ETag should be defined');
+            } catch (reason) {
+                if (reason.code == 'ECONNREFUSED') {
+                    console.log(noEmulatorMessage);
+                } else {
+                    assert(false, `should not throw: ${print(reason)}`);
+                }
+            }
+            return nockDone;
         });
 
         it(`should call connectionPolicyConfigurator - ${settingsCombo.name}`, function () {
             let policy = null;
-            let storage = new CosmosDbStorage(settingsCombo.settings, (policyInstance) => policy = policyInstance);
+            const storage = new CosmosDbStorage(settingsCombo.settings, (policyInstance) => policy = policyInstance);
 
             assert(policy != null, 'connectionPolicyConfigurator should have been called.')
         });
