@@ -294,8 +294,10 @@ export class CosmosDbStorage implements Storage {
                     .item(CosmosDbKeyEscape.escapeKey(k), this.settings.partitionValue)
                     .delete(reqOptions);
             } catch (err) {
-                // Throw errors for everything except trying to delete a document that doesn't exist
-                if (err.code !== 404) {
+                // If trying to delete a document that doesn't exist, notify the user. Otherwise, throw
+                if (err.code === 404) {
+                    console.log(`Unable to delete document. Error: ${err.body}`);
+                } else {
                     throw this.errWithNewMessage(err, 'Unable to delete document');
                 }
             }
