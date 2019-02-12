@@ -71,9 +71,9 @@ interface DocumentStoreItem {
      */
     document: any;
     /**
-     * The partitionKey (optional)
+     * The partitionKey (optional). This is more of a placeholder since it gets dynamically named.
      */
-    paritionKey?: any;
+    partitionKey?: any;
 }
 
 /**
