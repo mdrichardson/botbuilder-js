@@ -76,26 +76,6 @@ export class AdaptiveCardPrompt extends Dialog {
     private _promptId: string;
     private _card: Attachment;
 
-    /**
-     * Creates a new AdaptiveCardPrompt instance
-     * @param dialogId Unique ID of the dialog within its parent `DialogSet` or `ComponentDialog`.
-     * @param validator (optional) Validator that will be called each time a new activity is received.
-     * @param options (optional) Additional options for AdaptiveCardPrompt behavior
-     */
-    public constructor(dialogId: string, validator?: PromptValidator<object>, options?: AdaptiveCardPromptOptions) {
-        super(dialogId);
-        
-        this.validator = validator;
-        this._inputFailMessage = options.inputFailMessage || 'Please fill out the Adaptive Card';
-
-        this._requiredInputIds = options.requiredInputIds;
-        this._missingRequiredInputsMessage = options.missingRequiredInputsMessage || 'The following inputs are required';
-
-        this._attemptsBeforeCardRedisplayed = options.attemptsBeforeCardRedisplayed || 3;
-
-        this._card = options.card;
-    }
-
     public get inputFailMessage(): string|null|undefined {
         return this._inputFailMessage;
     }
@@ -142,6 +122,26 @@ export class AdaptiveCardPrompt extends Dialog {
 
     public set card(card: Attachment) {
         this._card = card;
+    }
+
+    /**
+     * Creates a new AdaptiveCardPrompt instance
+     * @param dialogId Unique ID of the dialog within its parent `DialogSet` or `ComponentDialog`.
+     * @param validator (optional) Validator that will be called each time a new activity is received.
+     * @param options (optional) Additional options for AdaptiveCardPrompt behavior
+     */
+    public constructor(dialogId: string, validator?: PromptValidator<object>, options?: AdaptiveCardPromptOptions) {
+        super(dialogId);
+        
+        this.validator = validator;
+        this._inputFailMessage = options.inputFailMessage || 'Please fill out the Adaptive Card';
+
+        this._requiredInputIds = options.requiredInputIds;
+        this._missingRequiredInputsMessage = options.missingRequiredInputsMessage || 'The following inputs are required';
+
+        this._attemptsBeforeCardRedisplayed = options.attemptsBeforeCardRedisplayed || 3;
+
+        this._card = options.card;
     }
 
     public async beginDialog(dc: DialogContext, options: PromptOptions): Promise<DialogTurnResult> {
