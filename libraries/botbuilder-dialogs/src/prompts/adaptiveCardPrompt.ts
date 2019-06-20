@@ -96,6 +96,54 @@ export class AdaptiveCardPrompt extends Dialog {
         this._card = options.card;
     }
 
+    public get inputFailMessage(): string|null|undefined {
+        return this._inputFailMessage;
+    }
+
+    public set inputFailMessage(message: string|null|undefined) {
+        this._inputFailMessage = message;
+    }
+
+    public get requiredInputIds(): string[] {
+        return this._requiredInputIds;
+    }
+
+    public set requiredInputIds(ids: string[]) {
+        this._requiredInputIds = ids;
+    }
+
+    public get missingRequiredInputsMessage(): string|null|undefined {
+        return this._missingRequiredInputsMessage;
+    }
+
+    public set missingRequiredInputsMessage(message: string|null|undefined) {
+        this._missingRequiredInputsMessage = message;
+    }
+
+    public get attemptsBeforeCardRedisplayed(): number {
+        return this._attemptsBeforeCardRedisplayed;
+    }
+
+    public set attemptsBeforeCardRedisplayed(attempts: number) {
+        this._attemptsBeforeCardRedisplayed = attempts;
+    }
+
+    public get promptId(): string {
+        return this._promptId;
+    }
+
+    public set promptId(id: string) {
+        this._promptId = id;
+    }
+
+    public get card(): Attachment {
+        return this._card;
+    }
+
+    public set card(card: Attachment) {
+        this._card = card;
+    }
+
     public async beginDialog(dc: DialogContext, options: PromptOptions): Promise<DialogTurnResult> {
         // Initialize prompt state
         const state: any = dc.activeDialog.state as PromptState;
