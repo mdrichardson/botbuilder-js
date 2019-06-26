@@ -149,4 +149,69 @@ describe('AdaptiveCardPrompt', function() {
             .send(simulatedInput)
             .assertReply('456');
     });
+
+    it('should use retryPrompt on retries, if given', async function() {
+        // Initialize TestAdapter.
+        const prompt = new AdaptiveCardPrompt('prompt', null, { card: card });
+
+        // Ensure we get the right promptId
+        sinon.stub(Math, 'random')
+            .onFirstCall().returns(123)
+            .onSecondCall().returns(456);
+
+        const adapter = new TestAdapter(async turnContext => {
+            const dc = await dialogs.createContext(turnContext);
+
+            const results = await dc.continueDialog();
+            if (results.status === DialogTurnStatus.empty) {
+                await dc.beginDialog('prompt', { prompt: { attachments: [card] }, retryPrompt: { text: 'RETRY' } });
+            }
+            await convoState.saveChanges(turnContext);
+        });
+        // Create new ConversationState with MemoryStorage and register the state as middleware.
+        const convoState = new ConversationState(new MemoryStorage());
+
+        // Create a DialogState property, DialogSet and TextPrompt.
+        const dialogState = convoState.createProperty('dialogState');
+        const dialogs = new DialogSet(dialogState);
+        dialogs.add(prompt);
+
+        await adapter.send('Hello')
+            .assertReply((activity) => {
+                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+            })
+            .send('abc')
+            .assertReply('Please fill out the Adaptive Card')
+            .assertReply('RETRY');
+    });
+
+    it('prompt can be string if card passed in constructor', async function() {
+        // Initialize TestAdapter.
+        const prompt = new AdaptiveCardPrompt('prompt', null, { card: card });
+
+        // Ensure we get the right promptId
+        sinon.stub(Math, 'random')
+            .onFirstCall().returns(123)
+            .onSecondCall().returns(456);
+
+        const adapter = new TestAdapter(async turnContext => {
+            const dc = await dialogs.createContext(turnContext);
+
+            const results = await dc.continueDialog();
+            if (results.status === DialogTurnStatus.empty) {
+                await dc.beginDialog('prompt', { prompt: 'STRING' });
+            }
+            await convoState.saveChanges(turnContext);
+        });
+        // Create new ConversationState with MemoryStorage and register the state as middleware.
+        const convoState = new ConversationState(new MemoryStorage());
+
+        // Create a DialogState property, DialogSet and TextPrompt.
+        const dialogState = convoState.createProperty('dialogState');
+        const dialogs = new DialogSet(dialogState);
+        dialogs.add(prompt);
+
+        await adapter.send('Hello')
+            .assertReply('STRING');
+    });
 });
