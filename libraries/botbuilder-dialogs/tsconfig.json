@@ -5,6 +5,7 @@
     "declaration": true,
     "sourceMap": true,
     "outDir": "./lib",
+    "resolveJsonModule": true,
     "rootDir": "./src",
     "types" : ["node"]
   },
