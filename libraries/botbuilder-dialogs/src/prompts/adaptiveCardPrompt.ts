@@ -1,4 +1,6 @@
-import { PromptValidator, DialogContext, PromptOptions, DialogTurnResult,  PromptRecognizerResult, Dialog } from '../../src';
+import { PromptValidator, PromptOptions,  PromptRecognizerResult } from './prompt';
+import { DialogTurnResult, Dialog } from '../dialog';
+import { DialogContext } from '../dialogContext';
 import { InputHints, TurnContext, Activity, ActionTypes, Attachment } from '../../../botbuilder';
 
 /**
