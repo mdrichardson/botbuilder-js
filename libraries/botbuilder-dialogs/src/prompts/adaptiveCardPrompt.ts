@@ -87,13 +87,13 @@ export class AdaptiveCardPrompt extends Dialog {
     public constructor(dialogId: string, validator?: PromptValidator<object>, options?: AdaptiveCardPromptOptions) {
         super(dialogId);
 
-        // Necessary for when this compiles to js
+        // Necessary for when this compiles to js since strictPropertyInitialization is false/unset in tsconfig
         options = Object.keys(options).length > 0 ? options : {};
         
         this.validator = validator;
         this._inputFailMessage = options.inputFailMessage || 'Please fill out the Adaptive Card';
 
-        this._requiredInputIds = options.requiredInputIds;
+        this._requiredInputIds = options.requiredInputIds || [];
         this._missingRequiredInputsMessage = options.missingRequiredInputsMessage || 'The following inputs are required';
 
         this._attemptsBeforeCardRedisplayed = options.attemptsBeforeCardRedisplayed || 3;
@@ -148,7 +148,7 @@ export class AdaptiveCardPrompt extends Dialog {
     public set card(card: Attachment) {
         this._card = card;
     }
-    
+
     public async beginDialog(dc: DialogContext, options: PromptOptions): Promise<DialogTurnResult> {
         // Initialize prompt state
         const state: any = dc.activeDialog.state as PromptState;
@@ -229,7 +229,7 @@ export class AdaptiveCardPrompt extends Dialog {
 
     protected async onRecognize(context: TurnContext): Promise<PromptRecognizerResult<object>> {
         // Ignore user input that doesn't come from adaptive card
-        if (context.activity.channelData && context.activity.channelData[ActionTypes.PostBack]) {
+        if (!context.activity.text && context.activity.value) {
             // Validate it comes from the correct card - This is only a worry while the prompt/dialog has not ended
             if (context.activity.value && context.activity.value['promptId'] != this._promptId) {
                 return { succeeded: false };
