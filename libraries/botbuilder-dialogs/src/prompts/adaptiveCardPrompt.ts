@@ -132,7 +132,7 @@ export class AdaptiveCardPrompt extends Dialog {
         
         this.validateIsCard(card, isRetry);
 
-        prompt.attachments[0] = this.addPromptIdToCard(card);
+        prompt.attachments = [this.addPromptIdToCard(card)];
 
         await context.sendActivity(prompt, undefined, InputHints.ExpectingInput);
     }
