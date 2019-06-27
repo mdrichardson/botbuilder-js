@@ -216,7 +216,7 @@ export class AdaptiveCardPrompt extends Dialog {
             return await dc.endDialog(recognized.value);
         } else {
             // Re-prompt, conditionally display card again
-            if (state.options.retryPrompt || state.state['attemptCount'] % this._attemptsBeforeCardRedisplayed === 0 ) {
+            if (state.state['attemptCount'] % this._attemptsBeforeCardRedisplayed === 0 ) {
                 await this.onPrompt(dc.context, state.state, state.options, true);
             }
             return await Dialog.EndOfTurn;
