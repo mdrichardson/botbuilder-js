@@ -257,10 +257,14 @@ export class AdaptiveCardPrompt extends Dialog {
 
     private validateIsCard(card: Attachment, isRetry: boolean): void {
         const adaptiveCardType = 'application/vnd.microsoft.card.adaptive';
+        const cardLocation = isRetry ? 'retryPrompt' : 'prompt';
 
-        if (!card || !card.contentType || card.contentType !== adaptiveCardType) {
-            const cardLocation = isRetry ? 'retryPrompt' : 'prompt';
+        if (!card || !card.content) {
             throw new Error(`No Adaptive Card provided. Include in the constructor or PromptOptions.${ cardLocation }.attachments[0]`);
+        } else if (!card.contentType || card.contentType !== adaptiveCardType) {
+            throw new Error(`Attachment is not a valid Adaptive Card.\n`+
+            `Ensure card.contentType is '${ adaptiveCardType }'\n`+
+            `and card.content contains the card json`);
         }
     }
 
