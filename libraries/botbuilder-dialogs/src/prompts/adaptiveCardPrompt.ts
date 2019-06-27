@@ -88,7 +88,7 @@ export class AdaptiveCardPrompt extends Dialog {
         super(dialogId);
 
         // Necessary for when this compiles to js since strictPropertyInitialization is false/unset in tsconfig
-        options = Object.keys(options).length > 0 ? options : {};
+        options = typeof(options) === 'object' ? options : {};
         
         this.validator = validator;
         this._inputFailMessage = options.inputFailMessage || 'Please fill out the Adaptive Card';
@@ -169,7 +169,7 @@ export class AdaptiveCardPrompt extends Dialog {
         let prompt = isRetry && options.retryPrompt ? (options.retryPrompt as Partial<Activity>) : (options.prompt as Partial<Activity>);
 
         // Create a prompt if user didn't pass it in through PromptOptions
-        if (Object.keys(prompt).length === 0 || (typeof(prompt) != 'object' && this._card)) {
+        if (!prompt || Object.keys(prompt).length === 0 || (typeof(prompt) != 'object' && this._card)) {
             prompt = {
                 attachments: [],
                 text: typeof(prompt) === 'string' ? prompt : undefined,
