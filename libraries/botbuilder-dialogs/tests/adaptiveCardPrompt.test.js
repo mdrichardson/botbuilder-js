@@ -4,12 +4,8 @@ const { CardFactory } = require('botbuilder');
 const assert = require('assert');
 const sinon = require('sinon');
 
-const cardJson = require('./adaptiveCard.json');
-const card = CardFactory.adaptiveCard(cardJson);
-
 describe('AdaptiveCardPrompt', function() {
-    // TODO: Set back to 5000
-    this.timeout(5000 * 999);
+    this.timeout(5000);
 
     let simulatedInput = {
         type: 'message',
@@ -21,7 +17,14 @@ describe('AdaptiveCardPrompt', function() {
         }
     };
 
+    let cardJson;
+    let card;
+
     this.beforeEach(() => {
+        // Must be JSON deep-cloned or it changes persist between tests
+        cardJson = JSON.parse(JSON.stringify(require('./adaptiveCard.json')));
+        card = CardFactory.adaptiveCard(cardJson);
+
         simulatedInput = {
             type: 'message',
             value: {
@@ -31,19 +34,18 @@ describe('AdaptiveCardPrompt', function() {
                 promptId: '123' // Stub this with Math.random()
             }
         };
+
+        // Stub the promptId to ensure mocked user input hits the right card
+        sinon.stub(Math, 'random').returns(123);
     });
 
     this.afterEach(() => {
         sinon.restore();
     });
 
-    // TODO: Test other initialization options
     it('should call AdaptiveCardPrompt using dc.prompt().', async function() {
         // Initialize TestAdapter.
         const prompt = new AdaptiveCardPrompt('prompt');
-
-        // Ensure we get the right promptId
-        sinon.stub(Math, 'random').returns(123);
 
         const adapter = new TestAdapter(async turnContext => {
             const dc = await dialogs.createContext(turnContext);
@@ -77,9 +79,6 @@ describe('AdaptiveCardPrompt', function() {
         // Initialize TestAdapter.
         const prompt = new AdaptiveCardPrompt('prompt');
 
-        // Ensure we get the right promptId
-        sinon.stub(Math, 'random').returns(123);
-
         const adapter = new TestAdapter(async turnContext => {
             const dc = await dialogs.createContext(turnContext);
 
@@ -112,7 +111,8 @@ describe('AdaptiveCardPrompt', function() {
         // Initialize TestAdapter.
         const prompt = new AdaptiveCardPrompt('prompt');
 
-        // Ensure we get the right promptId
+        // Ensure we get the right promptId. Must restore because stub is in beforeEach
+        sinon.restore();
         sinon.stub(Math, 'random')
             .onFirstCall().returns(123)
             .onSecondCall().returns(456);
@@ -152,11 +152,12 @@ describe('AdaptiveCardPrompt', function() {
             .assertReply('456');
     });
 
-    it('should use retryPrompt on retries, if given', async function() {
+    it('should use retryPrompt on retries, if given, and attemptsBeforeCardRedisplayed allows for it', async function() {
         // Initialize TestAdapter.
-        const prompt = new AdaptiveCardPrompt('prompt');
+        const prompt = new AdaptiveCardPrompt('prompt', null, { attemptsBeforeCardRedisplayed: 1 });
 
-        // Ensure we get the right promptId
+        // Ensure we get the right promptId. Must restore because stub is in beforeEach
+        sinon.restore();
         sinon.stub(Math, 'random')
             .onFirstCall().returns(123)
             .onSecondCall().returns(456);
@@ -187,13 +188,48 @@ describe('AdaptiveCardPrompt', function() {
             .assertReply('RETRY');
     });
 
+    it('should allow for custom promptId that doesn\'t change on reprompt', async function() {
+        // Note: This will fail simply because promptIds don't match the stubbed Math.random()
+        // Initialize TestAdapter.
+        const customId = 'custom';
+        const prompt = new AdaptiveCardPrompt('prompt', null, {
+            promptId: customId,
+            attemptsBeforeCardRedisplayed: 1
+        });
+
+        const adapter = new TestAdapter(async turnContext => {
+            const dc = await dialogs.createContext(turnContext);
+
+            const results = await dc.continueDialog();
+            if (results.status === DialogTurnStatus.empty) {
+                await dc.prompt('prompt', { prompt: { attachments: [card] } });
+            } else if (results.status === DialogTurnStatus.complete) {
+                const reply = results.result;
+                await turnContext.sendActivity(`You said ${ JSON.stringify(reply) }`);
+            }
+            await convoState.saveChanges(turnContext);
+        });
+        // Create new ConversationState with MemoryStorage and register the state as middleware.
+        const convoState = new ConversationState(new MemoryStorage());
+
+        // Create a DialogState property, DialogSet and TextPrompt.
+        const dialogState = convoState.createProperty('dialogState');
+        const dialogs = new DialogSet(dialogState);
+        dialogs.add(prompt);
+
+        await adapter.send('Hello')
+            .assertReply((activity) => {
+                assert.equal(activity.attachments[0].content.selectAction.data.promptId, customId);
+            })
+            .send(simulatedInput)
+            .assertReply((activity) => {
+                assert.equal(activity.attachments[0].content.selectAction.data.promptId, customId);
+            });
+    });
+
     it('prompt can be string if card passed in constructor', async function() {
         // Initialize TestAdapter.
         const prompt = new AdaptiveCardPrompt('prompt', null, { card: card });
-
-        // Ensure we get the right promptId
-        sinon.stub(Math, 'random')
-            .onFirstCall().returns(123);
 
         const adapter = new TestAdapter(async turnContext => {
             const dc = await dialogs.createContext(turnContext);
@@ -219,10 +255,6 @@ describe('AdaptiveCardPrompt', function() {
     it('should throw if no attachment passed in constructor or set', async function() {
         // Initialize TestAdapter.
         const prompt = new AdaptiveCardPrompt('prompt', null, { });
-
-        // Ensure we get the right promptId
-        sinon.stub(Math, 'random')
-            .onFirstCall().returns(123);
 
         const adapter = new TestAdapter(async turnContext => {
             const dc = await dialogs.createContext(turnContext);
@@ -252,10 +284,6 @@ describe('AdaptiveCardPrompt', function() {
     it('should throw if card is not a valid adaptive card', async function() {
         // Initialize TestAdapter.
         const prompt = new AdaptiveCardPrompt('prompt', null, { card: { content: cardJson, contentType: 'invalidCard' } });
-
-        // Ensure we get the right promptId
-        sinon.stub(Math, 'random')
-            .onFirstCall().returns(123);
 
         const adapter = new TestAdapter(async turnContext => {
             const dc = await dialogs.createContext(turnContext);
@@ -291,9 +319,6 @@ describe('AdaptiveCardPrompt', function() {
             usedValidator = true;
             return true;
         });
-
-        // Ensure we get the right promptId
-        sinon.stub(Math, 'random').returns(123);
 
         const adapter = new TestAdapter(async turnContext => {
             const dc = await dialogs.createContext(turnContext);
@@ -332,9 +357,6 @@ describe('AdaptiveCardPrompt', function() {
             attempts = context.state['attemptCount'];
             return false;
         }, { attemptsBeforeCardRedisplayed: 99 });
-
-        // Ensure we get the right promptId
-        sinon.stub(Math, 'random').returns(123);
 
         const adapter = new TestAdapter(async turnContext => {
             const dc = await dialogs.createContext(turnContext);
@@ -378,9 +400,6 @@ describe('AdaptiveCardPrompt', function() {
             return true;
         });
 
-        // Ensure we get the right promptId
-        sinon.stub(Math, 'random').returns(123);
-
         const adapter = new TestAdapter(async turnContext => {
             const dc = await dialogs.createContext(turnContext);
 
@@ -422,9 +441,6 @@ describe('AdaptiveCardPrompt', function() {
             inputFailMessage: failMessage
         });
 
-        // Ensure we get the right promptId
-        sinon.stub(Math, 'random').returns(123);
-
         const adapter = new TestAdapter(async turnContext => {
             const dc = await dialogs.createContext(turnContext);
 
@@ -455,9 +471,6 @@ describe('AdaptiveCardPrompt', function() {
         // Initialize TestAdapter.
         simulatedInput.value.promptId = 'wrongId';
         const prompt = new AdaptiveCardPrompt('prompt');
-
-        // Ensure we get the right promptId
-        sinon.stub(Math, 'random').returns(123);
 
         const adapter = new TestAdapter(async turnContext => {
             const dc = await dialogs.createContext(turnContext);
@@ -494,9 +507,6 @@ describe('AdaptiveCardPrompt', function() {
             missingRequiredInputsMessage: 'test inputs missing'
         });
 
-        // Ensure we get the right promptId
-        sinon.stub(Math, 'random').returns(123);
-
         const adapter = new TestAdapter(async turnContext => {
             const dc = await dialogs.createContext(turnContext);
 
@@ -530,9 +540,6 @@ describe('AdaptiveCardPrompt', function() {
             missingRequiredInputsMessage: 'test inputs missing'
         });
 
-        // Ensure we get the right promptId
-        sinon.stub(Math, 'random').returns(123);
-
         const adapter = new TestAdapter(async turnContext => {
             const dc = await dialogs.createContext(turnContext);
 
@@ -559,5 +566,90 @@ describe('AdaptiveCardPrompt', function() {
             })
             .send(simulatedInput)
             .assertReply(`You said ${ JSON.stringify(simulatedInput.value) }`);
+    });
+
+    it('should re-display the card only when attempt count divisible by attemptsBeforeCardRedisplayed', async function() {
+        // Initialize TestAdapter.
+        simulatedInput.value.promptId = '456';
+        const prompt = new AdaptiveCardPrompt('prompt', null, { attemptsBeforeCardRedisplayed: 5 });
+
+        const adapter = new TestAdapter(async turnContext => {
+            const dc = await dialogs.createContext(turnContext);
+
+            const results = await dc.continueDialog();
+            if (results.status === DialogTurnStatus.empty) {
+                await dc.prompt('prompt', { prompt: { attachments: [card] } });
+            } else if (results.status === DialogTurnStatus.waiting) {
+                await turnContext.sendActivity(`Invalid Response`);
+            }
+            await convoState.saveChanges(turnContext);
+        });
+        // Create new ConversationState with MemoryStorage and register the state as middleware.
+        const convoState = new ConversationState(new MemoryStorage());
+
+        // Create a DialogState property, DialogSet and TextPrompt.
+        const dialogState = convoState.createProperty('dialogState');
+        const dialogs = new DialogSet(dialogState);
+        dialogs.add(prompt);
+
+        await adapter.send('Hello')
+            .assertReply((activity) => {
+                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+            })
+            .send(simulatedInput)
+            .assertReply('Invalid Response')
+            .send(simulatedInput)
+            .assertReply('Invalid Response')
+            .send(simulatedInput)
+            .assertReply('Invalid Response')
+            .send(simulatedInput)
+            .assertReply('Invalid Response')
+            .send(simulatedInput)
+            .assertReply((activity) => {
+                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+            });
+    });
+
+    it('should appropriately add promptId to card in all nested json occurrences', async function() {
+        // Assert card doesn't already have promptIds
+        const cardBefore = cardJson;
+        assert(!cardBefore.selectAction.data || !cardBefore.selectAction.data.promptId);
+        assert(!cardBefore.actions[0].data || !cardBefore.actions[0].data.promptId);
+        assert(!cardBefore.actions[1].card.actions[0].data || !cardBefore.actions[1].card.actions[0].data.promptId);
+        assert(!cardBefore.actions[2].card.actions[0].data || !cardBefore.actions[2].card.actions[0].data.promptId);
+        assert(!cardBefore.actions[3].card.actions[0].data || !cardBefore.actions[3].card.actions[0].data.promptId);
+        
+        // Initialize TestAdapter.
+        const prompt = new AdaptiveCardPrompt('prompt');
+
+        const adapter = new TestAdapter(async turnContext => {
+            const dc = await dialogs.createContext(turnContext);
+
+            const results = await dc.continueDialog();
+            if (results.status === DialogTurnStatus.empty) {
+                await dc.prompt('prompt', { prompt: { attachments: [card] } });
+            } else if (results.status === DialogTurnStatus.complete) {
+                const reply = results.result;
+                await turnContext.sendActivity(`You said ${ JSON.stringify(reply) }`);
+            }
+            await convoState.saveChanges(turnContext);
+        });
+        // Create new ConversationState with MemoryStorage and register the state as middleware.
+        const convoState = new ConversationState(new MemoryStorage());
+
+        // Create a DialogState property, DialogSet and TextPrompt.
+        const dialogState = convoState.createProperty('dialogState');
+        const dialogs = new DialogSet(dialogState);
+        dialogs.add(prompt);
+
+        await adapter.send('Hello')
+            .assertReply((activity) => {
+                const cardAfter = activity.attachments[0].content;
+                assert.equal(cardAfter.selectAction.data.promptId, '123');
+                assert.equal(cardAfter.actions[0].data.promptId, '123');
+                assert.equal(cardAfter.actions[1].card.actions[0].data.promptId, '123');
+                assert.equal(cardAfter.actions[2].card.actions[0].data.promptId, '123');
+                assert.equal(cardAfter.actions[3].card.actions[0].data.promptId, '123');
+            });
     });
 });
