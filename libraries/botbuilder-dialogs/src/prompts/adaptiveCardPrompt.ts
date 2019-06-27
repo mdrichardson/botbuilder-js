@@ -1,7 +1,7 @@
 import { PromptValidator, PromptOptions,  PromptRecognizerResult } from './prompt';
 import { DialogTurnResult, Dialog } from '../dialog';
 import { DialogContext } from '../dialogContext';
-import { InputHints, TurnContext, Activity, ActionTypes, Attachment } from '../../../botbuilder';
+import { InputHints, TurnContext, Activity, Attachment } from '../../../botbuilder';
 
 /**
  * Options to control the behavior of AdaptiveCardPrompt
@@ -81,7 +81,7 @@ export class AdaptiveCardPrompt extends Dialog {
     /**
      * Creates a new AdaptiveCardPrompt instance
      * @param dialogId Unique ID of the dialog within its parent `DialogSet` or `ComponentDialog`.
-     * @param validator (optional) Validator that will be called each time a new activity is received.
+     * @param validator (optional) Validator that will be called each time a new activity is received. Validator should handle error messages on failures.
      * @param options (optional) Additional options for AdaptiveCardPrompt behavior
      */
     public constructor(dialogId: string, validator?: PromptValidator<object>, options?: AdaptiveCardPromptOptions) {
@@ -209,11 +209,6 @@ export class AdaptiveCardPrompt extends Dialog {
             });
         } else if (recognized.succeeded) {
             isValid = true;
-        } else {
-            // User used text input instead of card input or is missing required Inputs
-            if (this._inputFailMessage) {
-                await dc.context.sendActivity(this._inputFailMessage);
-            }
         }
 
         // Return recognized value or re-prompt
@@ -251,6 +246,10 @@ export class AdaptiveCardPrompt extends Dialog {
             }
             return { succeeded: true, value: context.activity.value };
         } else {
+            // User used text input instead of card input or is missing required Inputs
+            if (this._inputFailMessage) {
+                await context.sendActivity(this._inputFailMessage);
+            }
             return { succeeded: false };
         }
     }
