@@ -56,6 +56,16 @@ export interface AdaptiveCardPromptOptions {
      * Defaults to 3
      */
     attemptsBeforeCardRedisplayed?: number;
+
+    /**
+     * ID specific to this prompt.
+     * 
+     * @remarks
+     * Card input is only accepted if SubmitAction.data.promptId matches the promptId.
+     * This is set to a random string<number> and randomizes again on reprompts by default.
+     *   If set manually, will not change between reprompts.
+     */
+    promptId?: string;
 }
 
 /**
@@ -76,6 +86,7 @@ export class AdaptiveCardPrompt extends Dialog {
     private _missingRequiredInputsMessage: string|null|undefined;
     private _attemptsBeforeCardRedisplayed: number;
     private _promptId: string;
+    private usesCustomPromptId: boolean = false;
     private _card: Attachment;
 
     /**
@@ -99,6 +110,11 @@ export class AdaptiveCardPrompt extends Dialog {
         this._attemptsBeforeCardRedisplayed = options.attemptsBeforeCardRedisplayed || 3;
 
         this._card = options.card;
+
+        if (options.promptId) {
+            this._promptId = options.promptId;
+            this.usesCustomPromptId = true;
+        }
     }
 
     public get inputFailMessage(): string|null|undefined {
@@ -138,6 +154,7 @@ export class AdaptiveCardPrompt extends Dialog {
     }
 
     public set promptId(id: string) {
+        this.usesCustomPromptId = true;
         this._promptId = id;
     }
 
@@ -164,7 +181,7 @@ export class AdaptiveCardPrompt extends Dialog {
     protected async onPrompt(context: TurnContext, state: object, options: PromptOptions, isRetry: boolean): Promise<void> {
         // Should use GUID for C# -- it isn't native to Node, so this keeps dependencies down
         // Only the most recently-prompted card submission is accepted
-        this._promptId = `${ Math.random() }`;
+        this._promptId = this.usesCustomPromptId ? this._promptId : `${ Math.random() }`;
 
         let prompt = isRetry && options.retryPrompt ? (options.retryPrompt as Partial<Activity>) : (options.prompt as Partial<Activity>);
 
@@ -216,7 +233,7 @@ export class AdaptiveCardPrompt extends Dialog {
             return await dc.endDialog(recognized.value);
         } else {
             // Re-prompt, conditionally display card again
-            if (state.state['attemptCount'] % this._attemptsBeforeCardRedisplayed === 0 ) {
+            if (state.state['attemptCount'] % this._attemptsBeforeCardRedisplayed === 0) {
                 await this.onPrompt(dc.context, state.state, state.options, true);
             }
             return await Dialog.EndOfTurn;
