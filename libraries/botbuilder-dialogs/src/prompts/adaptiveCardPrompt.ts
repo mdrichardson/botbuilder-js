@@ -186,7 +186,7 @@ export class AdaptiveCardPrompt extends Dialog {
         let prompt = isRetry && options.retryPrompt ? (options.retryPrompt as Partial<Activity>) : (options.prompt as Partial<Activity>);
 
         // Create a prompt if user didn't pass it in through PromptOptions
-        if (!prompt || Object.keys(prompt).length === 0 || (typeof(prompt) != 'object' && this._card)) {
+        if (!prompt || Object.keys(prompt).length === 0 || typeof(prompt) != 'object' || !prompt.attachments || prompt.attachments.length === 0) {
             prompt = {
                 attachments: [],
                 text: typeof(prompt) === 'string' ? prompt : undefined,
