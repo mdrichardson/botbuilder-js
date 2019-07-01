@@ -3,6 +3,10 @@ const { AdaptiveCardPrompt, DialogSet, DialogTurnStatus } =  require('../');
 const { CardFactory } = require('botbuilder');
 const assert = require('assert');
 
+const assertActivityHasCard = (activity) => {
+    assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+};
+
 describe('AdaptiveCardPrompt', function() {
     this.timeout(5000);
 
@@ -59,7 +63,7 @@ describe('AdaptiveCardPrompt', function() {
 
         await adapter.send('Hello')
             .assertReply((activity) => {
-                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                assertActivityHasCard(activity);
                 simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
@@ -93,7 +97,7 @@ describe('AdaptiveCardPrompt', function() {
 
         await adapter.send('Hello')
             .assertReply((activity) => {
-                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                assertActivityHasCard(activity);
                 simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
@@ -127,7 +131,7 @@ describe('AdaptiveCardPrompt', function() {
 
         await adapter.send('Hello')
             .assertReply((activity) => {
-                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                assertActivityHasCard(activity);
                 simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
@@ -135,7 +139,7 @@ describe('AdaptiveCardPrompt', function() {
             .assertReply(() => simulatedInput.value.promptId);
         await adapter.send('Hello')
             .assertReply((activity) => {
-                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                assertActivityHasCard(activity);
                 simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
@@ -166,7 +170,7 @@ describe('AdaptiveCardPrompt', function() {
 
         await adapter.send('Hello')
             .assertReply((activity) => {
-                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                assertActivityHasCard(activity);
                 simulatedInput.value.promptId = prompt.promptId;
             })
             .send('abc')
@@ -324,7 +328,7 @@ describe('AdaptiveCardPrompt', function() {
 
         await adapter.send('Hello')
             .assertReply((activity) => {
-                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                assertActivityHasCard(activity);
                 simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
@@ -364,7 +368,7 @@ describe('AdaptiveCardPrompt', function() {
 
         await adapter.send('Hello')
             .assertReply((activity) => {
-                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                assertActivityHasCard(activity);
                 simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
@@ -401,7 +405,7 @@ describe('AdaptiveCardPrompt', function() {
 
         await adapter.send('Hello')
             .assertReply((activity) => {
-                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                assertActivityHasCard(activity);
                 simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
@@ -446,7 +450,7 @@ describe('AdaptiveCardPrompt', function() {
 
         await adapter.send('Hello')
             .assertReply((activity) => {
-                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                assertActivityHasCard(activity);
                 simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
@@ -544,7 +548,7 @@ describe('AdaptiveCardPrompt', function() {
 
         await adapter.send('Hello')
             .assertReply((activity) => {
-                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                assertActivityHasCard(activity);
                 simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
@@ -580,7 +584,7 @@ describe('AdaptiveCardPrompt', function() {
 
         await adapter.send('Hello')
             .assertReply((activity) => {
-                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                assertActivityHasCard(activity);
                 simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
@@ -613,7 +617,7 @@ describe('AdaptiveCardPrompt', function() {
 
         await adapter.send('Hello')
             .assertReply((activity) => {
-                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                assertActivityHasCard(activity);
             })
             .send(simulatedInput)
             .assertReply('Invalid Response')
