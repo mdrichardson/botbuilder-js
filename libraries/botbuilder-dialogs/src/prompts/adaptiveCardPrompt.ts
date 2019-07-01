@@ -4,9 +4,9 @@ import { DialogContext } from '../dialogContext';
 import { InputHints, TurnContext, Activity, Attachment } from '../../../botbuilder';
 
 /**
- * Options to control the behavior of AdaptiveCardPrompt
+ * Settings to control the behavior of AdaptiveCardPrompt
  */
-export interface AdaptiveCardPromptOptions {
+export interface AdaptiveCardPromptSettings {
     /**
      * An Adaptive Card. Can be input here or in constructor
      */
@@ -93,26 +93,26 @@ export class AdaptiveCardPrompt extends Dialog {
      * Creates a new AdaptiveCardPrompt instance
      * @param dialogId Unique ID of the dialog within its parent `DialogSet` or `ComponentDialog`.
      * @param validator (optional) Validator that will be called each time a new activity is received. Validator should handle error messages on failures.
-     * @param options (optional) Additional options for AdaptiveCardPrompt behavior
+     * @param settings (optional) Additional options for AdaptiveCardPrompt behavior
      */
-    public constructor(dialogId: string, validator?: PromptValidator<object>, options?: AdaptiveCardPromptOptions) {
+    public constructor(dialogId: string, validator?: PromptValidator<object>, settings?: AdaptiveCardPromptSettings) {
         super(dialogId);
 
         // Necessary for when this compiles to js since strictPropertyInitialization is false/unset in tsconfig
-        options = typeof(options) === 'object' ? options : {};
+        settings = typeof(settings) === 'object' ? settings : {};
         
         this.validator = validator;
-        this._inputFailMessage = options.inputFailMessage || 'Please fill out the Adaptive Card';
+        this._inputFailMessage = settings.inputFailMessage || 'Please fill out the Adaptive Card';
 
-        this._requiredInputIds = options.requiredInputIds || [];
-        this._missingRequiredInputsMessage = options.missingRequiredInputsMessage || 'The following inputs are required';
+        this._requiredInputIds = settings.requiredInputIds || [];
+        this._missingRequiredInputsMessage = settings.missingRequiredInputsMessage || 'The following inputs are required';
 
-        this._attemptsBeforeCardRedisplayed = options.attemptsBeforeCardRedisplayed || 3;
+        this._attemptsBeforeCardRedisplayed = settings.attemptsBeforeCardRedisplayed || 3;
 
-        this._card = options.card;
+        this._card = settings.card;
 
-        if (options.promptId) {
-            this._promptId = options.promptId;
+        if (settings.promptId) {
+            this._promptId = settings.promptId;
             this.usesCustomPromptId = true;
         }
     }
@@ -247,7 +247,7 @@ export class AdaptiveCardPrompt extends Dialog {
             if (context.activity.value && context.activity.value['promptId'] != this._promptId) {
                 return { succeeded: false };
             }
-            // Check for required input data, if specified in AdaptiveCardPromptOptions
+            // Check for required input data, if specified in AdaptiveCardPromptSettings
             let missingIds = [];
             this._requiredInputIds.forEach((id): void => {
                 if (!context.activity.value[id] || !context.activity.value[id].trim()) {
