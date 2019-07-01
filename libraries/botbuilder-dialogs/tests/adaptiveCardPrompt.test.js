@@ -1,8 +1,7 @@
 const { ConversationState, MemoryStorage, TestAdapter } = require('botbuilder-core');
-const { AdaptiveCardPrompt, DialogReason, DialogSet, DialogTurnStatus } =  require('../');
+const { AdaptiveCardPrompt, DialogSet, DialogTurnStatus } =  require('../');
 const { CardFactory } = require('botbuilder');
 const assert = require('assert');
-const sinon = require('sinon');
 
 describe('AdaptiveCardPrompt', function() {
     this.timeout(5000);
@@ -13,7 +12,6 @@ describe('AdaptiveCardPrompt', function() {
             FoodChoice: 'Steak',
             SteakOther: 'some details',
             SteakTemp: 'rare',
-            promptId: '123' // Stub this with Math.random()
         }
     };
 
@@ -31,16 +29,8 @@ describe('AdaptiveCardPrompt', function() {
                 FoodChoice: 'Steak',
                 SteakOther: 'some details',
                 SteakTemp: 'rare',
-                promptId: '123' // Stub this with Math.random()
             }
         };
-
-        // Stub the promptId to ensure mocked user input hits the right card
-        sinon.stub(Math, 'random').returns(123);
-    });
-
-    this.afterEach(() => {
-        sinon.restore();
     });
 
     it('should call AdaptiveCardPrompt using dc.prompt().', async function() {
@@ -70,9 +60,11 @@ describe('AdaptiveCardPrompt', function() {
         await adapter.send('Hello')
             .assertReply((activity) => {
                 assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
-            .assertReply(`You said ${ JSON.stringify(simulatedInput.value) }`);
+            // Must be lambda due to updating simulatedInput.value.promptId in async test flow
+            .assertReply(() => `You said ${ JSON.stringify(simulatedInput.value) }`);
     });
 
     it('should call AdaptiveCardPrompt using dc.beginDialog().', async function() {
@@ -102,20 +94,16 @@ describe('AdaptiveCardPrompt', function() {
         await adapter.send('Hello')
             .assertReply((activity) => {
                 assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
-            .assertReply(`You said ${ JSON.stringify(simulatedInput.value) }`);
+            // Must be lambda due to updating simulatedInput.value.promptId in async test flow
+            .assertReply(() => `You said ${ JSON.stringify(simulatedInput.value) }`);
     });
 
     it('should create a new promptId for each onPrompt() call.', async function() {
         // Initialize TestAdapter.
         const prompt = new AdaptiveCardPrompt('prompt');
-
-        // Ensure we get the right promptId. Must restore because stub is in beforeEach
-        sinon.restore();
-        sinon.stub(Math, 'random')
-            .onFirstCall().returns(123)
-            .onSecondCall().returns(456);
 
         const adapter = new TestAdapter(async turnContext => {
             const dc = await dialogs.createContext(turnContext);
@@ -140,27 +128,24 @@ describe('AdaptiveCardPrompt', function() {
         await adapter.send('Hello')
             .assertReply((activity) => {
                 assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
-            .assertReply('123');
-        simulatedInput.value.promptId = '456';
+            // Must be lambda due to updating simulatedInput.value.promptId in async test flow
+            .assertReply(() => simulatedInput.value.promptId);
         await adapter.send('Hello')
             .assertReply((activity) => {
                 assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
-            .assertReply('456');
+            // Must be lambda due to updating simulatedInput.value.promptId in async test flow
+            .assertReply(() => simulatedInput.value.promptId);
     });
 
     it('should use retryPrompt on retries, if given, and attemptsBeforeCardRedisplayed allows for it', async function() {
         // Initialize TestAdapter.
         const prompt = new AdaptiveCardPrompt('prompt', null, { attemptsBeforeCardRedisplayed: 1 });
-
-        // Ensure we get the right promptId. Must restore because stub is in beforeEach
-        sinon.restore();
-        sinon.stub(Math, 'random')
-            .onFirstCall().returns(123)
-            .onSecondCall().returns(456);
 
         const adapter = new TestAdapter(async turnContext => {
             const dc = await dialogs.createContext(turnContext);
@@ -182,6 +167,7 @@ describe('AdaptiveCardPrompt', function() {
         await adapter.send('Hello')
             .assertReply((activity) => {
                 assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                simulatedInput.value.promptId = prompt.promptId;
             })
             .send('abc')
             .assertReply('Please fill out the Adaptive Card')
@@ -218,13 +204,9 @@ describe('AdaptiveCardPrompt', function() {
         dialogs.add(prompt);
 
         await adapter.send('Hello')
-            .assertReply((activity) => {
-                assert.equal(activity.attachments[0].content.selectAction.data.promptId, customId);
-            })
+            .assertReply((activity) => assert.equal(activity.attachments[0].content.selectAction.data.promptId, customId))
             .send(simulatedInput)
-            .assertReply((activity) => {
-                assert.equal(activity.attachments[0].content.selectAction.data.promptId, customId);
-            });
+            .assertReply((activity) => assert.equal(activity.attachments[0].content.selectAction.data.promptId, customId));
     });
 
     it('prompt can be string if card passed in constructor', async function() {
@@ -343,9 +325,11 @@ describe('AdaptiveCardPrompt', function() {
         await adapter.send('Hello')
             .assertReply((activity) => {
                 assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
-            .assertReply(`You said ${ JSON.stringify(simulatedInput.value) }`);
+            // Must be lambda due to updating simulatedInput.value.promptId in async test flow
+            .assertReply(() => `You said ${ JSON.stringify(simulatedInput.value) }`);
         assert.equal(usedValidator, true);
     });
 
@@ -381,6 +365,7 @@ describe('AdaptiveCardPrompt', function() {
         await adapter.send('Hello')
             .assertReply((activity) => {
                 assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
             .assertReply('FAILED');
@@ -417,6 +402,7 @@ describe('AdaptiveCardPrompt', function() {
         await adapter.send('Hello')
             .assertReply((activity) => {
                 assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
             .assertReply('Invalid Response')
@@ -461,9 +447,11 @@ describe('AdaptiveCardPrompt', function() {
         await adapter.send('Hello')
             .assertReply((activity) => {
                 assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
-            .assertReply(`You said ${ JSON.stringify(simulatedInput.value) }`);
+            // Must be lambda due to updating simulatedInput.value.promptId in async test flow
+            .assertReply(() => `You said ${ JSON.stringify(simulatedInput.value) }`);
         assert.equal(usedValidator, true);
     });
 
@@ -494,11 +482,10 @@ describe('AdaptiveCardPrompt', function() {
         dialogs.add(prompt);
 
         await adapter.send('Hello')
-            .assertReply((activity) => {
-                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
-            })
+            .assertReply((activity) => assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive'))
             .send(simulatedInput)
-            .assertReply(failMessage);
+            // Must be lambda due to updating simulatedInput.value.promptId in async test flow
+            .assertReply(() => failMessage);
     });
 
     it('should not successfully recognize if input comes from card with wrong id', async function() {
@@ -526,9 +513,7 @@ describe('AdaptiveCardPrompt', function() {
         dialogs.add(prompt);
 
         await adapter.send('Hello')
-            .assertReply((activity) => {
-                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
-            })
+            .assertReply((activity) => assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive'))
             .send(simulatedInput)
             .assertReply(`Invalid Response`);
     });
@@ -560,6 +545,7 @@ describe('AdaptiveCardPrompt', function() {
         await adapter.send('Hello')
             .assertReply((activity) => {
                 assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
             .assertReply('test inputs missing: test1, test2, test3');
@@ -595,14 +581,15 @@ describe('AdaptiveCardPrompt', function() {
         await adapter.send('Hello')
             .assertReply((activity) => {
                 assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
+                simulatedInput.value.promptId = prompt.promptId;
             })
             .send(simulatedInput)
-            .assertReply(`You said ${ JSON.stringify(simulatedInput.value) }`);
+            // Must be lambda due to updating simulatedInput.value.promptId in async test flow
+            .assertReply(() => `You said ${ JSON.stringify(simulatedInput.value) }`);
     });
 
     it('should re-display the card only when attempt count divisible by attemptsBeforeCardRedisplayed', async function() {
         // Initialize TestAdapter.
-        simulatedInput.value.promptId = '456';
         const prompt = new AdaptiveCardPrompt('prompt', null, { attemptsBeforeCardRedisplayed: 5 });
 
         const adapter = new TestAdapter(async turnContext => {
@@ -637,9 +624,7 @@ describe('AdaptiveCardPrompt', function() {
             .send(simulatedInput)
             .assertReply('Invalid Response')
             .send(simulatedInput)
-            .assertReply((activity) => {
-                assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive');
-            });
+            .assertReply((activity) => assert.equal(activity.attachments[0].contentType, 'application/vnd.microsoft.card.adaptive'));
     });
 
     it('should appropriately add promptId to card in all nested json occurrences', async function() {
@@ -677,11 +662,11 @@ describe('AdaptiveCardPrompt', function() {
         await adapter.send('Hello')
             .assertReply((activity) => {
                 const cardAfter = activity.attachments[0].content;
-                assert.equal(cardAfter.selectAction.data.promptId, '123');
-                assert.equal(cardAfter.actions[0].data.promptId, '123');
-                assert.equal(cardAfter.actions[1].card.actions[0].data.promptId, '123');
-                assert.equal(cardAfter.actions[2].card.actions[0].data.promptId, '123');
-                assert.equal(cardAfter.actions[3].card.actions[0].data.promptId, '123');
+                assert.equal(cardAfter.selectAction.data.promptId, prompt.promptId);
+                assert.equal(cardAfter.actions[0].data.promptId, prompt.promptId);
+                assert.equal(cardAfter.actions[1].card.actions[0].data.promptId, prompt.promptId);
+                assert.equal(cardAfter.actions[2].card.actions[0].data.promptId, prompt.promptId);
+                assert.equal(cardAfter.actions[3].card.actions[0].data.promptId, prompt.promptId);
             });
     });
 });
