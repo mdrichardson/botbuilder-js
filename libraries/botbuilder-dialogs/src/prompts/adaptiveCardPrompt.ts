@@ -313,12 +313,12 @@ export class AdaptiveCardPrompt extends Dialog {
         return json;
     }
 
-    private checkAction(action: { type: string, data: object | string }): object {
+    private checkAction(action: { type: string; data: object|string }): object {
         const submitAction = 'Action.Submit';
         const showCardAction = 'Action.ShowCard';
 
         if (typeof(action.data) === 'string') {
-            throw new Error("Submit action data cannot be a string in an Adaptive Card prompt");
+            throw new Error('Submit action data cannot be a string in an Adaptive Card prompt');
         }
 
         if (action.type && action.type === submitAction) {
