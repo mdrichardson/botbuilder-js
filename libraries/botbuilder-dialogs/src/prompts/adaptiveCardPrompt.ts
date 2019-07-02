@@ -168,7 +168,7 @@ export class AdaptiveCardPrompt extends Dialog {
 
     public async beginDialog(dc: DialogContext, options: PromptOptions): Promise<DialogTurnResult> {
         // Initialize prompt state
-        const state: any = dc.activeDialog.state as AdaptiveCardPromptState;
+        const state: AdaptiveCardPromptState = dc.activeDialog.state;
         state.options = options;
         state.state = {};
 
@@ -206,7 +206,7 @@ export class AdaptiveCardPrompt extends Dialog {
     // Override continueDialog so that we can catch activity.value (which is ignored, by default)
     public async continueDialog(dc: DialogContext): Promise<DialogTurnResult> {
         // Perform base recognition
-        const state: AdaptiveCardPromptState = dc.activeDialog.state as AdaptiveCardPromptState;
+        const state: AdaptiveCardPromptState = dc.activeDialog.state;
         const recognized: PromptRecognizerResult<object> = await this.onRecognize(dc.context);
 
         if (state.state['attemptCount'] === undefined) {
