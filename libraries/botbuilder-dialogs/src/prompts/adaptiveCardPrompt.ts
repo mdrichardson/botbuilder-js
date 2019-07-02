@@ -28,12 +28,12 @@ export interface AdaptiveCardPromptSettings {
      * For JSON:
      * ```json
      * {
-        *   "type": "Input.Text",
-        *   "id": "myCustomId",
-        * },
-        *```
-        * You would use `"myCustomId"` if you want that to be a required input.
-        */
+     *   "type": "Input.Text",
+     *   "id": "myCustomId",
+     * },
+     *```
+     * You would use `"myCustomId"` if you want that to be a required input.
+     */
     requiredInputIds?: string[];
 
     /**
@@ -100,7 +100,7 @@ export class AdaptiveCardPrompt extends Dialog {
 
         // Necessary for when this compiles to js since strictPropertyInitialization is false/unset in tsconfig
         settings = typeof(settings) === 'object' ? settings : {};
-        
+
         this.validator = validator;
         this._inputFailMessage = settings.inputFailMessage || 'Please fill out the Adaptive Card';
 
@@ -154,7 +154,7 @@ export class AdaptiveCardPrompt extends Dialog {
     }
 
     public set promptId(id: string) {
-        this.usesCustomPromptId = true;
+        this.usesCustomPromptId = !!id; // true if id is truthy, false if id is null, etc.
         this._promptId = id;
     }
 
@@ -168,7 +168,7 @@ export class AdaptiveCardPrompt extends Dialog {
 
     public async beginDialog(dc: DialogContext, options: PromptOptions): Promise<DialogTurnResult> {
         // Initialize prompt state
-        const state: any = dc.activeDialog.state as PromptState;
+        const state: AdaptiveCardPromptState = dc.activeDialog.state;
         state.options = options;
         state.state = {};
 
@@ -195,7 +195,7 @@ export class AdaptiveCardPrompt extends Dialog {
 
         // Use card passed in PromptOptions or if it doesn't exist, use the one passed in from the constructor
         const card = prompt.attachments && prompt.attachments[0] ? prompt.attachments[0] : this._card;
-        
+
         this.validateIsCard(card, isRetry);
 
         prompt.attachments = [this.addPromptIdToCard(card)];
@@ -206,7 +206,7 @@ export class AdaptiveCardPrompt extends Dialog {
     // Override continueDialog so that we can catch activity.value (which is ignored, by default)
     public async continueDialog(dc: DialogContext): Promise<DialogTurnResult> {
         // Perform base recognition
-        const state: PromptState = dc.activeDialog.state as PromptState;
+        const state: AdaptiveCardPromptState = dc.activeDialog.state;
         const recognized: PromptRecognizerResult<object> = await this.onRecognize(dc.context);
 
         if (state.state['attemptCount'] === undefined) {
@@ -216,16 +216,19 @@ export class AdaptiveCardPrompt extends Dialog {
         }
 
         let isValid = false;
-        if (this.validator && recognized.succeeded) {
-            isValid = await this.validator({
-                context: dc.context,
-                recognized: recognized,
-                state: state.state,
-                options: state.options,
-                attemptCount: state.state['attemptCount']
-            });
-        } else if (recognized.succeeded) {
-            isValid = true;
+
+        if (recognized.succeeded) {
+            if (this.validator) {
+                isValid = await this.validator({
+                    context: dc.context,
+                    recognized: recognized,
+                    state: state.state,
+                    options: state.options,
+                    attemptCount: state.state['attemptCount']
+                });
+            } else {
+                isValid = true;
+            }
         }
 
         // Return recognized value or re-prompt
@@ -271,64 +274,70 @@ export class AdaptiveCardPrompt extends Dialog {
         }
     }
 
-    private validateIsCard(card: Attachment, isRetry: boolean): void {
+    private validateIsCard(cardAttachment: Attachment, isRetry: boolean): void {
         const adaptiveCardType = 'application/vnd.microsoft.card.adaptive';
         const cardLocation = isRetry ? 'retryPrompt' : 'prompt';
 
-        if (!card || !card.content) {
+        if (!cardAttachment || !cardAttachment.content) {
             throw new Error(`No Adaptive Card provided. Include in the constructor or PromptOptions.${ cardLocation }.attachments[0]`);
-        } else if (!card.contentType || card.contentType !== adaptiveCardType) {
+        } else if (!cardAttachment.contentType || cardAttachment.contentType !== adaptiveCardType) {
             throw new Error(`Attachment is not a valid Adaptive Card.\n`+
             `Ensure card.contentType is '${ adaptiveCardType }'\n`+
             `and card.content contains the card json`);
         }
     }
 
-    private addPromptIdToCard(card: Attachment): Attachment {
-        card.content = this.deepSearchJsonForActionsAndAddPromptId(card.content);
-        return card;
+    private addPromptIdToCard(cardAttachment: Attachment): Attachment {
+        cardAttachment.content = this.deepSearchJsonForActionsAndAddPromptId(cardAttachment.content);
+        return cardAttachment;
     }
 
     private deepSearchJsonForActionsAndAddPromptId(json: object): object {
-        const submitAction = 'Action.Submit';
-        const showCardAction = 'Action.ShowCard';
-    
         for (const key in json) {
             // Search for all submits in actions
             if (key === 'actions') {
                 for (const action in json[key]) {
-                    if (json[key][action].type && json[key][action].type === submitAction) {
-                        json[key][action].data = { ...json[key][action].data, ...{ promptId: this._promptId }};
-    
-                    // Recursively search Action.ShowCard for Submits within the nested card
-                    } else if (json[key][action].type && json[key][action].type === showCardAction) {
-                        json[key][action] = this.deepSearchJsonForActionsAndAddPromptId(json[key][action]);
-                    }
+                    json[key][action] = this.checkAction(json[key][action]);
                 }
-                
+
             // Search for all submits in selectActions
             } else if (key === 'selectAction') {
-                if (json[key].type && json[key].type === submitAction) {
-                    json[key].data = { ...json[key].data, ...{ promptId: this._promptId }};
-    
-                // Recursively search Action.ShowCard for Submits within the nested card
-                } else if (json[key].type && json[key].type === showCardAction) {
-                    json[key] = this.deepSearchJsonForActionsAndAddPromptId(json[key]);
-                }
-    
+                json[key] = this.checkAction(json[key]);
+
             // Recursively search all other objects
             } else if (json[key] && typeof json[key] === 'object') {
                 json[key] = this.deepSearchJsonForActionsAndAddPromptId(json[key]);
             }
         }
+
         return json;
+    }
+
+    private checkAction(action: { type: string; data: object|string }): object {
+        const submitAction = 'Action.Submit';
+        const showCardAction = 'Action.ShowCard';
+
+        if (typeof(action.data) === 'string') {
+            throw new Error('Submit action data cannot be a string in an Adaptive Card prompt');
+        }
+
+        if (action.type && action.type === submitAction) {
+            action.data = { ...action.data, promptId: this._promptId };
+        } else if (action.type && action.type === showCardAction) {
+            // Recursively search Action.ShowCard for Submits within the nested card.
+            // Note that there can't be a nested card in a select action
+            // because Action.ShowCard is not supported in select actions.
+            return this.deepSearchJsonForActionsAndAddPromptId(action);
+        }
+
+        return action;
     }
 }
 
 /**
  * @private
  */
-interface PromptState {
+interface AdaptiveCardPromptState {
     state: object;
     options: PromptOptions;
 }
