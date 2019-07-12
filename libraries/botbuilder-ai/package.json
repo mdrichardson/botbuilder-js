@@ -21,7 +21,7 @@
   "typings": "./lib/index.d.ts",
   "dependencies": {
     "@microsoft/recognizers-text-date-time": "1.1.2",
-    "@types/node": "^10.12.18",
+    "@types/node": "^12.6.2",
     "@azure/cognitiveservices-luis-runtime": "2.0.0",
     "botbuilder-core": "~4.1.6",
     "moment": "^2.20.1",
