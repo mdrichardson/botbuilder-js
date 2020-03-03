@@ -27,6 +27,7 @@
   "devDependencies": {
     "@types/uuid": "^3.4.3",
     "mocha": "^5.2.0",
+    "nyc": "^15.0.0",
     "typescript": "3.5.3"
   },
   "dependencies": {

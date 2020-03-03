@@ -9,10 +9,11 @@
   "directories": {
     "test": "tests"
   },
-  "scripts": {
-    
-  },
+  "scripts": {},
   "keywords": [],
   "author": "",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "nyc": "^15.0.0"
+  }
 }

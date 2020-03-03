@@ -12,7 +12,7 @@
   "homepage": "http://github.com/Microsoft/botbuilder-js",
   "bugs": {
     "url": "http://github.com/Microsoft/botbuilder-js/issues"
-  },  
+  },
   "repository": {
     "type": "git",
     "url": "git@github.com:Microsoft/botbuilder-js.git"
@@ -20,6 +20,7 @@
   "main": "./lib/index.js",
   "typings": "./lib/index.d.ts",
   "devDependencies": {
+    "nyc": "^15.0.0",
     "typescript": "3.5.3"
   },
   "scripts": {

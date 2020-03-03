@@ -12,5 +12,8 @@
     "botbuilder": "4.1.6",
     "botframework-connector": "4.1.6",
     "restify": "^8.5.1"
+  },
+  "devDependencies": {
+    "nyc": "^15.0.0"
   }
 }
