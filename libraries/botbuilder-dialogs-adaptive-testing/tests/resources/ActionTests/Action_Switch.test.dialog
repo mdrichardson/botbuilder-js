@@ -1,5 +1,5 @@
 {
-    "$schema": "../../../../schemas/sdk.schema",
+    "$schema": "../../../tests.schema",
     "$kind": "Microsoft.Test.Script",
     "dialog": {
         "$kind": "Microsoft.AdaptiveDialog",
@@ -13,28 +13,19 @@
                         "property": "user.name",
                         "value": "='frank'"
                     },
-                    {
-                        "$kind": "Microsoft.BeginDialog",
-                        "dialog": "SwitchString"
-                    },
+                    "SwitchString",
                     {
                         "$kind": "Microsoft.SetProperty",
                         "property": "user.name",
                         "value": "frank"
                     },
-                    {
-                        "$kind": "Microsoft.BeginDialog",
-                        "dialog": "SwitchString"
-                    },
+                    "SwitchString",
                     {
                         "$kind": "Microsoft.SetProperty",
                         "property": "user.name",
                         "value": "23"
                     },
-                    {
-                        "$kind": "Microsoft.BeginDialog",
-                        "dialog": "SwitchString"
-                    }
+                    "SwitchString"
                 ]
             }
         ],

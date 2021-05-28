@@ -1,5 +1,5 @@
 {
-    "$schema": "../../../../schemas/sdk.schema",
+    "$schema": "../../../tests.schema",
     "$kind": "Microsoft.Test.Script",
     "dialog": {
         "$kind": "Microsoft.AdaptiveDialog",
@@ -13,19 +13,13 @@
                         "property": "user.age",
                         "value": "=22"
                     },
-                    {
-                        "$kind": "Microsoft.BeginDialog",
-                        "dialog": "SwitchNumber"
-                    },
+                    "SwitchNumber",
                     {
                         "$kind": "Microsoft.SetProperty",
                         "property": "user.age",
                         "value": "23"
                     },
-                    {
-                        "$kind": "Microsoft.BeginDialog",
-                        "dialog": "SwitchNumber"
-                    }
+                    "SwitchNumber"
                 ]
             }
         ],

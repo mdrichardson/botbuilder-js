@@ -1,4 +1,4 @@
-> import as base
+﻿> import as base
 > the nameSpace would be ignored in the default import resolver
 [import from base](./base.lg) as base
 

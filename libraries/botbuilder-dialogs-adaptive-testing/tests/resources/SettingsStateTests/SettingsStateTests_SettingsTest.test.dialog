@@ -17,7 +17,7 @@
                     },
                     {
                         "$kind": "Microsoft.SendActivity",
-                        "activity": "${settings.ApplicationInsightsInstrumentationKey}"
+                        "activity": "${json(string(settings.ApplicationInsights)).InstrumentationKey}"
                     }
                 ]
             }

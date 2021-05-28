@@ -20,7 +20,7 @@
                     },
                     {
                         "$kind": "Microsoft.SendActivity",
-                        "activity": "confirmation: ${user.confirmed}"
+                        "activity": "confirmation: ${toLower(string(user.confirmed))}"
                     }
                 ]
             }

@@ -81,8 +81,12 @@ export class HttpRequestSequenceMock extends HttpRequestMock implements HttpRequ
         }
         const response = new SequenceResponseManager(this.responses);
         const url = parse(this.url);
-        let path = this.url.substr(url.origin.length);
+        let path: string | RegExp = this.url.substr(url.origin.length);
         path = path.startsWith('/') ? path : '/' + path;
+        if (path.includes('*')) {
+            // eslint-disable-next-line security/detect-non-literal-regexp
+            path = new RegExp(path.replace('*', '.*'));
+        }
         if (this.method) {
             nock(url.origin)
                 .intercept(path, this.method, this._matchContent.bind(this))
@@ -107,7 +111,14 @@ export class HttpRequestSequenceMock extends HttpRequestMock implements HttpRequ
     private _httpMethods = [HttpMethod.GET, HttpMethod.PATCH, HttpMethod.DELETE, HttpMethod.POST, HttpMethod.PUT];
 
     private _matchContent(body: unknown): boolean {
-        const content: string = typeof body === 'string' ? body : JSON.stringify(body, undefined, 2);
+        let content: string = typeof body === 'string' ? body : JSON.stringify(body, undefined, 0);
+
+        // LUIS queries have an extra space in the JSON string. This adds the extra space for LUIS queries
+        // and makes the test JSON files copy/paste-able w/ .NET, which is more difficult to control the JSON serialization for.
+        if (content.includes('"query":')) {
+            content = content.replace(/":/g, '": ');
+        }
+
         if (this.matchType === BodyMatchType.Exact) {
             return content === this.body;
         } else {

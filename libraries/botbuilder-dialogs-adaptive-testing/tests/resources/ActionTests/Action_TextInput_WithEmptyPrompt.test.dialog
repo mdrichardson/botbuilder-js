@@ -1,5 +1,5 @@
 {
-    "$schema": "../../../../schemas/sdk.schema",
+    "$schema": "../../../tests.schema",
     "$kind": "Microsoft.Test.Script",
     "dialog": {
         "$kind": "Microsoft.AdaptiveDialog",
@@ -30,7 +30,11 @@
         },
         {
             "$kind": "Microsoft.Test.AssertReply",
-            "text": "Call to onRenderPrompt() returned a null activity for state missing."
+            "assertions": [
+                "contains(toLower(text),  'call to')",
+                "contains(toLower(text),  'renderprompt')",
+                "contains(toLower(text),  'returned a null activity for state missing.')"
+            ]
         }
     ]
 }

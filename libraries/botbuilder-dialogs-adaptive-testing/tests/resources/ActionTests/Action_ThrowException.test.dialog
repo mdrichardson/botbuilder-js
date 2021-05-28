@@ -60,7 +60,7 @@
                 "actions": [
                   {
                     "$kind": "Microsoft.SendActivity",
-                    "activity": "${turn.dialogEvent.value.name}: ${turn.dialogEvent.value.message}"
+                    "activity": "${turn.dialogEvent.Value.ClassName}: ${turn.dialogEvent.Value.Message}"
                   }
                 ]
             }
@@ -83,7 +83,9 @@
         },
         {
             "$kind": "Microsoft.Test.AssertReply",
-            "text": "DialogContextError: This is an exception message."
+            "assertions": [
+                "contains(toLower(text),  'this is an exception message')"
+            ]
         },
         {
             "$kind": "Microsoft.Test.UserSays",

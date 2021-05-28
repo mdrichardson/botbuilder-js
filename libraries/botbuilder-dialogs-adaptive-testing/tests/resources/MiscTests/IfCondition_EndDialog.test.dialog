@@ -44,7 +44,7 @@
                     },
                     {
                         "$kind": "Microsoft.IfCondition",
-                        "condition": "(conversation.addTodo.cancelConfirmation == true)",
+                        "condition": "(equals(conversation.addTodo.cancelConfirmation, bool(1)))",
                         "actions": [
                             {
                                 "$kind": "Microsoft.SendActivity",

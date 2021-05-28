@@ -24,11 +24,7 @@
         {
             "$kind": "Microsoft.OnBeginDialog",
             "actions": [
-                {
-                    "$kind": "Microsoft.BeginDialog",
-                    "options": {},
-                    "dialog": "GreetingDialog"
-                },
+                "GreetingDialog",
                 {
                     "$kind": "Microsoft.SendActivity",
                     "activity": "I'm a joke bot. To get started say 'tell me a joke'"
@@ -39,22 +35,14 @@
             "$kind": "Microsoft.OnIntent",
             "intent": "JokeIntent",
             "actions": [
-                {
-                    "$kind": "Microsoft.BeginDialog",
-                    "options": {},
-                    "dialog": "TellJokeDialog"
-                }
+                "TellJokeDialog"
             ]
         },
         {
             "$kind": "Microsoft.OnIntent",
             "intent": "GreetingIntent",
             "actions": [
-                {
-                    "$kind": "Microsoft.BeginDialog",
-                    "options": {},
-                    "dialog": "GreetingDialog"
-                }
+                "GreetingDialog"
             ]
         },
         {

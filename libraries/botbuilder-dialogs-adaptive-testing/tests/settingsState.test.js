@@ -9,7 +9,9 @@ describe('SettingsStateTests', function () {
 
     process.env['MicrosoftAppId'] = 'MICROSOFT_APP_ID';
     process.env['MicrosoftAppPassword'] = 'MICROSOFT_APP_PASSWORD';
-    process.env['ApplicationInsightsInstrumentationKey'] = '00000000-0000-0000-0000-000000000000';
+    process.env['ApplicationInsights'] = JSON.stringify({
+        InstrumentationKey: '00000000-0000-0000-0000-000000000000',
+    });
 
     it('SettingsTest', async () => {
         await TestUtils.runTestScript(resourceExplorer, 'SettingsStateTests_SettingsTest');

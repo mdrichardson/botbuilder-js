@@ -8,10 +8,10 @@ describe('ActionScopeTests', function () {
     });
 
     it('HasPendingActions', async () => {
-        await TestUtils.runTestScript(resourceExplorer, 'hasPendingActions');
+        await TestUtils.runTestScript(resourceExplorer, 'HasPendingActions');
     });
 
     it('IsDialogActive', async () => {
-        await TestUtils.runTestScript(resourceExplorer, 'isDialogActive');
+        await TestUtils.runTestScript(resourceExplorer, 'IsDialogActive');
     });
 });

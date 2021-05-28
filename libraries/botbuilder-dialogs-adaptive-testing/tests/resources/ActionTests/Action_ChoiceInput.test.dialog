@@ -1,5 +1,5 @@
 {
-    "$schema": "../../../../schemas/sdk.schema",
+    "$schema": "../../../tests.schema",
     "$kind": "Microsoft.Test.Script",
     "dialog": {
         "$kind": "Microsoft.AdaptiveDialog",
@@ -21,7 +21,7 @@
                                 "value": "blue"
                             }
                         ],
-                        "styles": 2,
+                        "style": "inline",
                         "property": "user.color",
                         "prompt": "Please select a color:",
                         "unrecognizedPrompt": "Not a color. Please select a color:"
@@ -43,7 +43,7 @@
                                 "value": "blue"
                             }
                         ],
-                        "styles": 2,
+                        "style": "inline",
                         "alwaysPrompt": true,
                         "property": "user.color",
                         "prompt": "Please select a color:",
@@ -66,12 +66,11 @@
                                 "value": "blue"
                             }
                         ],
-                        "styles": 2,
+                        "style": "inline",
                         "alwaysPrompt": true,
                         "property": "user.color",
                         "prompt": "Please select a color:",
-                        "unrecognizedPrompt": "Please select a color:",
-                        "outputFormat": "index"
+                        "unrecognizedPrompt": "Please select a color:"
                     },
                     {
                         "$kind": "Microsoft.SendActivity",
@@ -118,18 +117,6 @@
         {
             "$kind": "Microsoft.Test.AssertReply",
             "text": "red"
-        },
-        {
-            "$kind": "Microsoft.Test.AssertReply",
-            "text": "Please select a color: (1) red, (2) green, or (3) blue"
-        },
-        {
-            "$kind": "Microsoft.Test.UserSays",
-            "text": "red"
-        },
-        {
-            "$kind": "Microsoft.Test.AssertReply",
-            "text": "0"
         }
     ]
 }

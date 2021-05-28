@@ -26,16 +26,6 @@
             },
             {
                 "$kind": "Microsoft.OnMessageActivity",
-                "condition": "turn.activity.text == 'constraint'",
-                "actions": [
-                    {
-                        "$kind": "Microsoft.SendActivity",
-                        "activity": "constraint"
-                    }
-                ]
-            },
-            {
-                "$kind": "Microsoft.OnMessageActivity",
                 "actions": [
                     {
                         "$kind": "Microsoft.SendActivity",
@@ -121,6 +111,16 @@
                     {
                         "$kind": "Microsoft.SendActivity",
                         "activity": "TypingActivityEvent"
+                    }
+                ]
+            },
+            {
+                "$kind": "Microsoft.OnMessageActivity",
+                "condition": "turn.activity.text == 'constraint'",
+                "actions": [
+                    {
+                        "$kind": "Microsoft.SendActivity",
+                        "activity": "constraint"
                     }
                 ]
             }

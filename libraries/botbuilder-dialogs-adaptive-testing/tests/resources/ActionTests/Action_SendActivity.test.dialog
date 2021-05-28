@@ -1,5 +1,5 @@
 {
-    "$schema": "../../../../schemas/sdk.schema",
+    "$schema": "../../../tests.schema",
     "$kind": "Microsoft.Test.Script",
     "dialog": {
         "$kind": "Microsoft.AdaptiveDialog",
@@ -10,7 +10,6 @@
                 "actions": [
                     {
                         "$kind": "Microsoft.SendActivity",
-                        "disabled": "$disabled",
                         "activity": "success"
                     },
                     {
@@ -20,15 +19,30 @@
                     },
                     {
                         "$kind": "Microsoft.SendActivity",
-                        "disabled": "$disabled",
+                        "disabled": "=$disabled",
                         "activity": "fail"
                     },
                     {
                         "$kind": "Microsoft.SendActivity",
-                        "activity": "done"
+                        "activity": {
+                            "type": "message",
+                            "text": "activity works"
+                        }
                     },
                     {
                         "$kind": "Microsoft.SendActivity",
+                        "activity": {
+                            "$kind": "Microsoft.StaticActivityTemplate",
+                            "activity": {
+                                "type": "message",
+                                "text": "static activity works"
+                            }
+                        }
+                    },
+                    {
+                        "$kind": "Microsoft.SendActivity",
+                        "activity": {
+                        "$kind": "Microsoft.StaticActivityTemplate",
                         "activity": {
                             "type": "message",
                             "channelData": {
@@ -48,10 +62,7 @@
                                 }
                             }
                         }
-                    },
-                    {
-                        "$kind": "Microsoft.SendActivity",
-                        "activity": "hi ${titleCase('jack')}"
+                        }
                     }
                 ]
             }
@@ -67,19 +78,19 @@
         },
         {
             "$kind": "Microsoft.Test.AssertReply",
-            "text": "done"
+            "text": "activity works"
+        },
+        {
+            "$kind": "Microsoft.Test.AssertReply",
+            "text": "static activity works"
         },
         {
             "$kind": "Microsoft.Test.AssertReplyActivity",
             "assertions": [
                 "type == 'message'",
-                "text == undefined",
-                "channelData != undefined"
+                "text == null",
+                "channelData != null"
             ]
-        },
-        {
-            "$kind": "Microsoft.Test.AssertReply",
-            "text": "hi Jack"
         }
     ]
 }

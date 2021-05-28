@@ -1,5 +1,5 @@
 {
-    "$schema": "../../../../schemas/sdk.schema",
+    "$schema": "../../../tests.schema",
     "$kind": "Microsoft.Test.Script",
     "dialog": {
         "$kind": "Microsoft.AdaptiveDialog",
@@ -34,10 +34,10 @@
                             {
                                 "property": "user.profile",
                                 "value":
-                                    {
-                                        "name": "${sentenceCase(user.profile.userName)}",
-                                        "age": "${10 * 2}"
-                                    }
+                                {
+                                    "name": "${sentenceCase(user.profile.userName)}",
+                                    "age": "${10 * 2}"
+                                }
                             }
                         ]
                     },
@@ -48,10 +48,12 @@
                     {
                         "$kind": "Microsoft.SendActivity",
                         "activity": "${$p2}"
-                    },                    {
+                    },
+                    {
                         "$kind": "Microsoft.SendActivity",
                         "activity": "${$p3}"
-                    },                    {
+                    },
+                    {
                         "$kind": "Microsoft.SendActivity",
                         "activity": "${$p4}"
                     },

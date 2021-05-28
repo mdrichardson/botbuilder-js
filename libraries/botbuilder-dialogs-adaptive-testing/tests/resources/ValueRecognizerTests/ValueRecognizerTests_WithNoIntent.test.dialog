@@ -1,5 +1,5 @@
 {
-    "$schema": "../../../../schemas/sdk.schema",
+    "$schema": "../../../tests.schema",
     "$kind": "Microsoft.Test.Script",
     "dialog": {
         "$kind": "Microsoft.AdaptiveDialog",
@@ -40,7 +40,6 @@
             },
             {
                 "$kind": "Microsoft.OnUnknownIntent",
-                "condition": "@age == null",
                 "actions": [
                     {
                         "$kind": "Microsoft.SendActivity",

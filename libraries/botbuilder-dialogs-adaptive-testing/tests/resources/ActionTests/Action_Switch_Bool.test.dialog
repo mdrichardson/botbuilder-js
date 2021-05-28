@@ -1,5 +1,5 @@
 {
-    "$schema": "../../../../schemas/sdk.schema",
+    "$schema": "../../../tests.schema",
     "$kind": "Microsoft.Test.Script",
     "dialog": {
         "$kind": "Microsoft.AdaptiveDialog",
@@ -13,19 +13,13 @@
                         "property": "user.isVip",
                         "value": true
                     },
-                    {
-                        "$kind": "Microsoft.BeginDialog",
-                        "dialog": "SwitchBool"
-                    },
+                    "SwitchBool",
                     {
                         "$kind": "Microsoft.SetProperty",
                         "property": "user.isVip",
                         "value": "=false"
                     },
-                    {
-                        "$kind": "Microsoft.BeginDialog",
-                        "dialog": "SwitchBool"
-                    }
+                    "SwitchBool"
                 ]
             }
         ],

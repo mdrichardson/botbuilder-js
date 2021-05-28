@@ -35,11 +35,7 @@
                     {
                         "$kind": "Microsoft.TraceActivity"
                     },
-                    {
-                        "$kind": "Microsoft.BeginDialog",
-                        "options": {},
-                        "dialog": "AdaptiveDialog_BeingDialog_innerDialog"
-                    }
+                    "AdaptiveDialog_BeingDialog_innerDialog"
                 ]
             },
             {

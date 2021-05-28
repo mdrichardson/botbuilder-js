@@ -1,5 +1,5 @@
 {
-    "$schema": "../../../../schemas/sdk.schema",
+    "$schema": "../../../tests.schema",
     "$kind": "Microsoft.Test.Script",
     "dialog": {
         "$kind": "Microsoft.AdaptiveDialog",
@@ -28,15 +28,6 @@
                         "description": "Step after Goto should never be executed!"
                     }
                 ]
-            },
-            {
-                "$kind": "Microsoft.OnError",
-                "actions": [
-                    {
-                        "$kind": "Microsoft.SendActivity",
-                        "activity": "error"
-                    }
-                ]
             }
         ]
     },
@@ -46,7 +37,9 @@
         },
         {
             "$kind": "Microsoft.Test.AssertReply",
-            "text": "error"
+            "assertions": [
+                "contains(text,  'could not find an action')"
+            ]
         }
     ]
 }

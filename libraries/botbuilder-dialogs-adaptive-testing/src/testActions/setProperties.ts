@@ -9,7 +9,7 @@
 import { StringExpression, ValueExpression } from 'adaptive-expressions';
 import { TestAdapter, TurnContext } from 'botbuilder-core';
 import { Converter, ConverterFactory } from 'botbuilder-dialogs';
-import { PropertyAssignment } from 'botbuilder-dialogs-adaptive';
+import { PropertyAssignment, replaceJsonRecursively } from 'botbuilder-dialogs-adaptive';
 import { Inspector, TestAction } from '../testAction';
 
 type AssignmentInput<T> = {
@@ -70,7 +70,10 @@ export class SetProperties extends TestAction {
         if (inspector) {
             await inspector((dc) => {
                 this.assignments.forEach((assignment) => {
-                    dc.state.setValue(assignment.property.getValue(dc.state), assignment.value.getValue(dc.state));
+                    let value = assignment.value.getValue(dc.state);
+                    value = replaceJsonRecursively(dc.state, value);
+
+                    dc.state.setValue(assignment.property.getValue(dc.state), value);
                 });
             });
         } else {

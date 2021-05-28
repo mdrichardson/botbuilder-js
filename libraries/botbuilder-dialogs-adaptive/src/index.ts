@@ -16,6 +16,7 @@ export * from './expressions';
 export * from './functions';
 export * from './generators';
 export * from './input';
+export * from './jsonExtensions';
 export * from './languageGenerationBotComponent';
 export * from './languageGenerator';
 export * from './languageGeneratorExtensions';
