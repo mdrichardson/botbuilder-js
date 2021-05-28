@@ -456,13 +456,13 @@ export abstract class InputDialog extends Dialog implements InputDialogConfigura
             dc.state.deleteValue(property);
         }
 
-        if (!input && this.value) {
+        if (input == null && this.value) {
             const value = this.value.getValue(dc.state);
             input = value;
         }
 
         const activityProcessed = dc.state.getValue(TurnPath.activityProcessed);
-        if (!activityProcessed && !input && turnCount > 0) {
+        if (!activityProcessed && input == null && turnCount > 0) {
             if (this instanceof AttachmentInput) {
                 input = dc.context.activity.attachments || [];
             } else {
@@ -476,7 +476,7 @@ export abstract class InputDialog extends Dialog implements InputDialogConfigura
         }
 
         dc.state.setValue(InputDialog.VALUE_PROPERTY, input);
-        if (input) {
+        if (input != null) {
             const state = await this.onRecognizeInput(dc);
             if (state == InputState.valid) {
                 for (let i = 0; i < this.validations.length; i++) {

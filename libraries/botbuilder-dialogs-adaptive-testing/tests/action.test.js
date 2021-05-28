@@ -343,6 +343,10 @@ describe('ActionTests', function () {
     it('NumerInputWithDefaultValue', async () => {
         await TestUtils.runTestScript(resourceExplorer, 'Action_NumberInputWithDefaultValue');
     });
+    
+    it('NumerInputWithDefaultResponse', async () => {
+        await TestUtils.runTestScript(resourceExplorer, 'Action_NumberInputWithDefaultResponse');
+    });
 
     it('NumberInputWithValueExpression', async () => {
         await TestUtils.runTestScript(resourceExplorer, 'Action_NumberInputWithValueExpression');
