@@ -154,4 +154,8 @@ describe('AdaptiveDialogTests', function () {
     it('TestForeachWithPrompt', async function () {
         await TestUtils.runTestScript(resourceExplorer, 'TestForeachWithPrompt');
     });
+
+    it('TestForeachWithPromptInConversationUpdate', async function () {
+        await TestUtils.runTestScript(resourceExplorer, 'TestForeachWithPromptInConversationUpdate');
+    });
 });
