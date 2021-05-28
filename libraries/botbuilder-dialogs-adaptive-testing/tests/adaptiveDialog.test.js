@@ -47,6 +47,10 @@ describe('AdaptiveDialogTests', function () {
         await TestUtils.runTestScript(resourceExplorer, 'AdaptiveDialog_BeginDialog');
     });
 
+    it('BeginDialog_With_Dup_Dialog_Ref', async function () {
+        await TestUtils.runTestScript(resourceExplorer, 'AdaptiveDialog_BeginDialog_With_Dup_Dialog_Ref');
+    });
+
     it('BindingCaptureValueWithinSameAdaptive', async function () {
         await TestUtils.runTestScript(resourceExplorer, 'AdaptiveDialog_BindingCaptureValueWithinSameAdaptive');
     });
